@@ -2,460 +2,753 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Dropship Pro — Marketplace</title>
+<meta name="description" content="Premium dropshipping marketplace with AI-powered order management">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
-:root{--bg:#080a0e;--void:#0d1017;--surface:#111620;--card:#161d2a;--card-h:#1c2538;--border:#1e2d47;--border-b:#2a3f60;--amber:#f5a623;--ag:rgba(245,166,35,.15);--ags:rgba(245,166,35,.06);--blue:#00d4ff;--text:#e8edf5;--sub:#7a8ba8;--muted:#3d5070;--green:#00e67a;--red:#ff4757;--orange:#ff6b35;--teal:#00d4aa;--r:12px;--rs:8px}
+/* ── SECURITY: Disable selection & context menu visually ── */
+body{-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+
+:root{
+  --bg:#080a0e;--void:#0d1017;--sur:#111620;--card:#161d2a;--cardh:#1c2538;
+  --brd:#1e2d47;--brdb:#2a3f60;--amb:#f5a623;--ag:rgba(245,166,35,.15);
+  --ags:rgba(245,166,35,.06);--blu:#00d4ff;--txt:#e8edf5;--sub:#7a8ba8;
+  --mut:#3d5070;--grn:#00e67a;--red:#ff4757;--ora:#ff6b35;--tel:#00d4aa;
+  --r:12px;--rs:8px;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
-::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.page{display:none;animation:fadeIn .3s ease}
-.page.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
+img{pointer-events:none}
+
+/* PAGES */
+.pg{display:none;animation:fadeUp .3s ease}
+.pg.act{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 
 /* HEADER */
-header{position:sticky;top:0;z-index:200;background:rgba(8,10,14,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 20px}
-.hdr{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:14px;height:60px}
-.logo{font-family:'Bebas Neue';font-size:26px;letter-spacing:3px;color:var(--amber);flex-shrink:0;cursor:pointer}
-.logo small{display:block;font-family:'JetBrains Mono';font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:-4px}
-.search-wrap{flex:1;position:relative;max-width:440px}
-.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted)}
-#searchInput{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px 9px 36px;color:var(--text);font-family:'DM Sans';font-size:13px;outline:none;transition:.2s}
-#searchInput:focus{border-color:var(--amber);box-shadow:0 0 0 3px var(--ag)}
-#searchInput::placeholder{color:var(--muted)}
-.hdr-right{display:flex;align-items:center;gap:10px;margin-left:auto}
-.ibtn{width:38px;height:38px;background:var(--surface);border:1px solid var(--border);border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);transition:.2s;position:relative;flex-shrink:0}
-.ibtn:hover{border-color:var(--amber);color:var(--amber)}
-.auth-btn{background:var(--amber);color:#000;border:none;border-radius:9px;padding:8px 16px;font-family:'DM Sans';font-weight:600;font-size:13px;cursor:pointer;transition:.2s;white-space:nowrap}
-.auth-btn:hover{background:#ffb733}
-.auth-btn.out{background:var(--surface);color:var(--sub);border:1px solid var(--border)}
-.auth-btn.out:hover{border-color:var(--red);color:var(--red)}
+header{position:sticky;top:0;z-index:200;background:rgba(8,10,14,.96);backdrop-filter:blur(24px);border-bottom:1px solid var(--brd);padding:0 18px}
+.hdr{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:12px;height:58px}
+.logo{font-family:'Bebas Neue';font-size:24px;letter-spacing:3px;color:var(--amb);flex-shrink:0;cursor:pointer;line-height:1}
+.logo small{display:block;font-family:'JetBrains Mono';font-size:8px;color:var(--mut);letter-spacing:1px;margin-top:-3px}
+.sw{flex:1;position:relative;max-width:400px}
+.sw svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--mut)}
+#searchInput{width:100%;background:var(--sur);border:1px solid var(--brd);border-radius:9px;padding:8px 11px 8px 33px;color:var(--txt);font-family:'DM Sans';font-size:13px;outline:none;transition:.2s}
+#searchInput:focus{border-color:var(--amb);box-shadow:0 0 0 3px var(--ag)}
+#searchInput::placeholder{color:var(--mut)}
+.hdr-r{display:flex;align-items:center;gap:8px;margin-left:auto}
+.ibtn{width:36px;height:36px;background:var(--sur);border:1px solid var(--brd);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);transition:.2s;position:relative;flex-shrink:0}
+.ibtn:hover{border-color:var(--amb);color:var(--amb)}
+.abtn{background:var(--amb);color:#000;border:none;border-radius:8px;padding:7px 14px;font-family:'DM Sans';font-weight:700;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap}
+.abtn:hover{background:#ffb733}
+.abtn.out{background:var(--sur);color:var(--sub);border:1px solid var(--brd);font-weight:600}
+.abtn.out:hover{border-color:var(--red);color:var(--red)}
 
 /* BOTTOM NAV */
-.bnav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(8,10,14,.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);padding:8px 0 18px;z-index:150}
-.bnav-inner{display:flex;justify-content:space-around}
-.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10px;cursor:pointer;padding:6px 14px;border-radius:9px;transition:.2s;border:none;background:none;font-family:'DM Sans'}
-.bnav-item svg{width:20px;height:20px}
-.bnav-item.active{color:var(--amber)}
-@media(max-width:768px){.bnav{display:block}body{padding-bottom:76px}}
+.bnav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(8,10,14,.98);backdrop-filter:blur(24px);border-top:1px solid var(--brd);padding:6px 0 16px;z-index:150}
+.bnav-in{display:flex;justify-content:space-around}
+.bni{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--mut);font-size:9px;cursor:pointer;padding:5px 12px;border-radius:8px;transition:.2s;border:none;background:none;font-family:'DM Sans'}
+.bni svg{width:19px;height:19px}
+.bni.act{color:var(--amb)}
+@media(max-width:768px){.bnav{display:block}body{padding-bottom:72px}}
 
 /* SHARED */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r)}
-.section-wrap{max-width:1200px;margin:0 auto;padding:28px 20px}
-.section-title{font-family:'Bebas Neue';font-size:26px;letter-spacing:1px;margin-bottom:20px;display:flex;align-items:center;gap:10px}
-.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
-.form-group{margin-bottom:14px}
-.form-label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-family:'JetBrains Mono';letter-spacing:.5px}
-.form-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:10px 13px;color:var(--text);font-family:'DM Sans';font-size:14px;outline:none;transition:.2s}
-.form-input:focus{border-color:var(--amber);box-shadow:0 0 0 3px var(--ag)}
-.form-input::placeholder{color:var(--muted)}
-.btn-full{width:100%;background:var(--amber);color:#000;border:none;border-radius:var(--rs);padding:12px;font-family:'DM Sans';font-weight:700;font-size:14px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:7px}
-.btn-full:hover{background:#ffb733}
-.btn-full:disabled{opacity:.5;cursor:not-allowed}
-.btn-ghost{width:100%;background:transparent;color:var(--sub);border:1px solid var(--border);border-radius:var(--rs);padding:11px;font-family:'DM Sans';font-size:13px;cursor:pointer;transition:.2s;margin-top:9px}
-.btn-ghost:hover{border-color:var(--border-b);color:var(--text)}
+.wrap{max-width:1200px;margin:0 auto;padding:24px 18px}
+.card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r)}
+.stl{font-family:'Bebas Neue';font-size:24px;letter-spacing:1px;margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.stl::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--brd),transparent)}
+.fl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.fg{margin-bottom:12px}
+.lbl{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;font-family:'JetBrains Mono';letter-spacing:.5px;text-transform:uppercase}
+.inp{width:100%;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:10px 12px;color:var(--txt);font-family:'DM Sans';font-size:13px;outline:none;transition:.2s}
+.inp:focus{border-color:var(--amb);box-shadow:0 0 0 3px var(--ag)}
+.inp::placeholder{color:var(--mut)}
+textarea.inp{resize:vertical;min-height:80px}
+select.inp{cursor:pointer}
+.btn{border:none;border-radius:var(--rs);padding:10px 18px;font-family:'DM Sans';font-weight:700;font-size:13px;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:7px;justify-content:center}
+.btn-a{background:var(--amb);color:#000}.btn-a:hover{background:#ffb733}
+.btn-a:disabled{opacity:.5;cursor:not-allowed}
+.btn-g{background:transparent;color:var(--sub);border:1px solid var(--brd)}.btn-g:hover{border-color:var(--brdb);color:var(--txt)}
+.btn-r{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25)}.btn-r:hover{background:var(--red);color:#fff}
+.btn-w{width:100%}
+.err{color:var(--red);font-size:12px;margin-top:6px;min-height:16px}
+.ok{color:var(--grn);font-size:12px;margin-top:6px}
+.badge{display:inline-flex;padding:3px 9px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono'}
+.b-grn{background:rgba(0,230,122,.12);color:var(--grn);border:1px solid rgba(0,230,122,.25)}
+.b-amb{background:var(--ag);color:var(--amb);border:1px solid rgba(245,166,35,.25)}
+.b-red{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2)}
+.b-blu{background:rgba(0,212,255,.1);color:var(--blu);border:1px solid rgba(0,212,255,.2)}
+.b-tel{background:rgba(0,212,170,.1);color:var(--tel);border:1px solid rgba(0,212,170,.2)}
+.divider{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:11px;margin:12px 0}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--brd)}
 
 /* HERO */
-.hero-wrap{max-width:1200px;margin:24px auto 0;padding:0 20px}
-.hero-card{background:linear-gradient(135deg,var(--card),#0d1a30);border:1px solid var(--border);border-radius:18px;padding:40px 36px;position:relative;overflow:hidden;display:grid;grid-template-columns:1fr auto;gap:32px;align-items:center}
-.hero-card::before{content:'';position:absolute;top:-50px;right:-50px;width:260px;height:260px;background:radial-gradient(circle,var(--ag),transparent 70%);pointer-events:none}
-.hero-tag{font-family:'JetBrains Mono';font-size:10px;color:var(--amber);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.hero-tag::before{content:'';width:18px;height:1px;background:var(--amber)}
-.hero-title{font-family:'Bebas Neue';font-size:clamp(38px,5vw,60px);line-height:.95;margin-bottom:14px}
-.hero-title .ac{color:var(--amber)}
-.hero-sub{color:var(--sub);font-size:14px;line-height:1.6;max-width:380px}
-.hero-stats{display:flex;gap:28px;margin-top:24px}
-.hs-num{font-family:'Bebas Neue';font-size:30px;color:var(--amber);line-height:1}
-.hs-lbl{font-size:11px;color:var(--muted);margin-top:3px}
-.policy-pills{display:flex;flex-direction:column;gap:7px}
-.pp{background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:7px 14px;font-size:11px;color:var(--sub);display:flex;align-items:center;gap:7px;white-space:nowrap}
-.pp .d{width:5px;height:5px;border-radius:50%;background:var(--green);flex-shrink:0}
-.pp .d.w{background:var(--amber)}
-@media(max-width:700px){.hero-card{grid-template-columns:1fr}.policy-pills{display:none}.hero-card{padding:28px 20px}}
+.hero-card{background:linear-gradient(135deg,var(--card),#0d1a30);border:1px solid var(--brd);border-radius:18px;padding:36px 32px;position:relative;overflow:hidden;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;margin-bottom:28px}
+.hero-card::before{content:'';position:absolute;top:-40px;right:-40px;width:220px;height:220px;background:radial-gradient(circle,var(--ag),transparent 70%);pointer-events:none}
+.hero-tag{font-family:'JetBrains Mono';font-size:9px;color:var(--amb);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.hero-tag::before{content:'';width:16px;height:1px;background:var(--amb)}
+.hero-ttl{font-family:'Bebas Neue';font-size:clamp(36px,5vw,56px);line-height:.93;margin-bottom:12px}
+.hero-ttl .ac{color:var(--amb)}
+.hero-sub{color:var(--sub);font-size:13px;line-height:1.6;max-width:340px}
+.hero-stats{display:flex;gap:24px;margin-top:20px}
+.hn{font-family:'Bebas Neue';font-size:28px;color:var(--amb);line-height:1}
+.hl{font-size:10px;color:var(--mut);margin-top:2px}
+.pps{display:flex;flex-direction:column;gap:6px}
+.pp{background:var(--sur);border:1px solid var(--brd);border-radius:100px;padding:6px 12px;font-size:11px;color:var(--sub);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pp .d{width:5px;height:5px;border-radius:50%;background:var(--grn);flex-shrink:0}
+.pp .d.w{background:var(--amb)}
+@media(max-width:660px){.hero-card{grid-template-columns:1fr}.pps{display:none}.hero-card{padding:24px 18px}}
 
 /* PRODUCT GRID */
-#productGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
-.prod-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:all .3s cubic-bezier(.25,.46,.45,.94);animation:fadeIn .4s ease both}
-.prod-card:hover{border-color:var(--border-b);transform:translateY(-3px);box-shadow:0 16px 48px rgba(0,0,0,.35),0 0 0 1px var(--ag);background:var(--card-h)}
-.prod-img-wrap{position:relative;overflow:hidden}
-.prod-img-wrap img{width:100%;height:190px;object-fit:cover;display:block;transition:transform .4s}
-.prod-card:hover .prod-img-wrap img{transform:scale(1.05)}
-.prod-img-ph{width:100%;height:190px;background:linear-gradient(135deg,var(--surface),var(--void));display:flex;align-items:center;justify-content:center;color:var(--muted)}
-.prod-badge{position:absolute;top:10px;left:10px;font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:3px 9px;border-radius:4px;font-weight:500}
-.bc{background:rgba(255,107,53,.18);color:var(--orange);border:1px solid rgba(255,107,53,.3)}
-.bp{background:rgba(0,212,170,.12);color:var(--teal);border:1px solid rgba(0,212,170,.25)}
-.prod-body{padding:16px}
-.prod-name{font-size:14px;font-weight:600;margin-bottom:10px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.prod-price{font-family:'Bebas Neue';font-size:24px;letter-spacing:.5px;margin-bottom:4px}
-.prod-mrp-lbl{font-size:11px;color:var(--muted);font-family:'JetBrains Mono';margin-bottom:10px}
-.cod-tag{display:inline-flex;align-items:center;gap:5px;background:rgba(255,107,53,.1);border:1px solid rgba(255,107,53,.2);border-radius:6px;padding:3px 9px;font-size:11px;color:var(--orange);margin-bottom:12px}
-.btn-upload{width:100%;background:var(--amber);color:#000;border:none;border-radius:var(--rs);padding:11px;font-family:'DM Sans';font-weight:700;font-size:13px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:7px}
-.btn-upload:hover{background:#ffb733;transform:translateY(-1px)}
-.filter-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
-.chip{background:var(--surface);border:1px solid var(--border);border-radius:100px;padding:5px 13px;font-size:12px;color:var(--sub);cursor:pointer;transition:.2s}
-.chip:hover,.chip.active{background:var(--ag);border-color:var(--amber);color:var(--amber)}
-.empty-state{grid-column:1/-1;text-align:center;padding:72px 20px;color:var(--muted)}
-.empty-state svg{width:56px;height:56px;margin-bottom:18px;opacity:.25}
-.empty-state h3{font-family:'Bebas Neue';font-size:26px;color:var(--sub);margin-bottom:6px}
+#productGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.pc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:all .3s cubic-bezier(.25,.46,.45,.94);animation:fadeUp .4s ease both}
+.pc:hover{border-color:var(--brdb);transform:translateY(-3px);box-shadow:0 14px 40px rgba(0,0,0,.3),0 0 0 1px var(--ag);background:var(--cardh)}
+.pi-wrap{position:relative;overflow:hidden}
+.pi-wrap img{width:100%;height:180px;object-fit:cover;display:block;transition:transform .4s}
+.pc:hover .pi-wrap img{transform:scale(1.05)}
+.pi-ph{width:100%;height:180px;background:linear-gradient(135deg,var(--sur),var(--void));display:flex;align-items:center;justify-content:center;color:var(--mut)}
+.pbdg{position:absolute;top:8px;left:8px;font-family:'JetBrains Mono';font-size:9px;letter-spacing:1px;padding:3px 8px;border-radius:4px}
+.pbdg.cod{background:rgba(255,107,53,.18);color:var(--ora);border:1px solid rgba(255,107,53,.3)}
+.pbdg.pre{background:rgba(0,212,170,.12);color:var(--tel);border:1px solid rgba(0,212,170,.25)}
+.pb{padding:14px}
+.pn{font-size:14px;font-weight:600;margin-bottom:8px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pp2{font-family:'Bebas Neue';font-size:22px;letter-spacing:.5px;margin-bottom:2px}
+.pm{font-size:10px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:8px}
+.ct{display:inline-flex;align-items:center;gap:4px;background:rgba(255,107,53,.1);border:1px solid rgba(255,107,53,.2);border-radius:5px;padding:2px 8px;font-size:10px;color:var(--ora);margin-bottom:10px}
+.upl{width:100%;background:var(--amb);color:#000;border:none;border-radius:var(--rs);padding:10px;font-family:'DM Sans';font-weight:700;font-size:12px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.upl:hover{background:#ffb733;transform:translateY(-1px)}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
+.chip{background:var(--sur);border:1px solid var(--brd);border-radius:100px;padding:4px 12px;font-size:11px;color:var(--sub);cursor:pointer;transition:.2s}
+.chip:hover,.chip.act{background:var(--ag);border-color:var(--amb);color:var(--amb)}
+.empty-s{grid-column:1/-1;text-align:center;padding:64px 20px;color:var(--mut)}
+.empty-s svg{width:50px;height:50px;margin-bottom:14px;opacity:.2}
+.empty-s h3{font-family:'Bebas Neue';font-size:24px;color:var(--sub);margin-bottom:6px}
 
 /* DASHBOARD */
-.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
-.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;position:relative;overflow:hidden}
-.stat-card::after{content:'';position:absolute;top:0;right:0;width:50px;height:50px;background:radial-gradient(circle at top right,var(--ag),transparent)}
-.stat-icon{width:32px;height:32px;background:var(--surface);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--amber);margin-bottom:12px}
-.stat-icon svg{width:16px;height:16px}
-.stat-val{font-family:'Bebas Neue';font-size:32px;line-height:1;margin-bottom:3px}
-.stat-lbl{font-size:12px;color:var(--muted)}
-.order-row-dash{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
-.order-row-dash:last-child{border-bottom:none}
-.or-id{font-family:'JetBrains Mono';font-size:11px;color:var(--amber);width:90px;flex-shrink:0}
-.or-prod{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.or-amt{font-family:'Bebas Neue';font-size:18px;flex-shrink:0}
-.status-badge{display:inline-flex;padding:3px 8px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono';letter-spacing:.5px}
-.s-paid{background:rgba(0,230,122,.12);color:var(--green);border:1px solid rgba(0,230,122,.25)}
-.s-pending{background:rgba(245,166,35,.12);color:var(--amber);border:1px solid rgba(245,166,35,.25)}
-.s-shipped{background:rgba(0,212,255,.12);color:var(--blue);border:1px solid rgba(0,212,255,.25)}
-.s-delivered{background:rgba(0,212,170,.12);color:var(--teal);border:1px solid rgba(0,212,170,.25)}
-.s-cancelled{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25)}
-.s-processing{background:rgba(0,212,255,.1);color:var(--blue);border:1px solid rgba(0,212,255,.2)}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px}
+.sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:18px;position:relative;overflow:hidden}
+.sc::after{content:'';position:absolute;top:0;right:0;width:44px;height:44px;background:radial-gradient(circle at top right,var(--ag),transparent)}
+.si{width:28px;height:28px;background:var(--sur);border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--amb);margin-bottom:10px}
+.si svg{width:14px;height:14px}
+.sv{font-family:'Bebas Neue';font-size:28px;line-height:1;margin-bottom:2px}
+.sl{font-size:11px;color:var(--mut)}
+.or{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--brd)}
+.or:last-child{border-bottom:none}
+.oid{font-family:'JetBrains Mono';font-size:10px;color:var(--amb);width:80px;flex-shrink:0}
+.opn{flex:1;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oa{font-family:'Bebas Neue';font-size:16px;flex-shrink:0}
 
-/* ORDERS */
-.orders-list{display:flex;flex-direction:column;gap:12px}
-.order-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;transition:.2s}
-.order-card:hover{border-color:var(--border-b)}
-.oc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-.oc-id{font-family:'JetBrains Mono';font-size:11px;color:var(--amber)}
-.oc-date{font-size:11px;color:var(--muted)}
-.oc-prod{font-size:14px;font-weight:600;margin-bottom:8px}
-.oc-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.oc-pill{font-size:11px;color:var(--sub);background:var(--surface);border-radius:6px;padding:3px 9px}
-.oc-bottom{display:flex;justify-content:space-between;align-items:center}
-.oc-amt{font-family:'Bebas Neue';font-size:22px;color:var(--amber)}
-.oc-profit{font-size:12px;color:var(--green)}
+/* ORDERS PAGE */
+.ol{display:flex;flex-direction:column;gap:10px}
+.oc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;transition:.2s}
+.oc:hover{border-color:var(--brdb)}
+.oct{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:7px}
+.ocid{font-family:'JetBrains Mono';font-size:10px;color:var(--amb)}
+.ocd{font-size:10px;color:var(--mut)}
+.ocprod{font-size:14px;font-weight:600;margin-bottom:7px}
+.ocm{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.ocp{font-size:10px;color:var(--sub);background:var(--sur);border-radius:5px;padding:2px 8px}
+.ocb{display:flex;justify-content:space-between;align-items:center}
+.oca{font-family:'Bebas Neue';font-size:20px;color:var(--amb)}
+.ocp2{font-size:11px;color:var(--grn)}
 
 /* PROFILE */
-.profile-grid{display:grid;grid-template-columns:280px 1fr;gap:20px}
-@media(max-width:768px){.profile-grid{grid-template-columns:1fr}}
-.avatar-big{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--amber),#ff8c00);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:28px;color:#000;margin-bottom:16px}
-.profile-name{font-size:18px;font-weight:700;margin-bottom:4px}
-.profile-email{font-size:12px;color:var(--muted);font-family:'JetBrains Mono';margin-bottom:20px;word-break:break-all}
-.prof-stat{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
-.prof-stat:last-of-type{border-bottom:none}
-.prof-stat .psv{font-weight:700;color:var(--amber)}
-.settle-block{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:22px;margin-bottom:14px}
-.settle-ttl{font-family:'Bebas Neue';font-size:20px;letter-spacing:1px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
-.settle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
-.settle-row:last-of-type{border-bottom:none}
-.settle-row .sl{color:var(--sub)}
-.settle-net-lbl{font-size:11px;color:var(--muted);margin-bottom:4px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}
-.settle-net-val{font-family:'Bebas Neue';font-size:32px;color:var(--green)}
+.pg-grid{display:grid;grid-template-columns:260px 1fr;gap:18px}
+@media(max-width:768px){.pg-grid{grid-template-columns:1fr}}
+.av{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--amb),#ff8c00);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:26px;color:#000;margin-bottom:14px}
+.pname{font-size:17px;font-weight:700;margin-bottom:3px}
+.pemail{font-size:11px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:18px;word-break:break-all}
+.psr{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.psr:last-of-type{border-bottom:none}
+.psr .v{font-weight:700;color:var(--amb)}
+.setl{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:20px;margin-bottom:12px}
+.sttl{font-family:'Bebas Neue';font-size:19px;letter-spacing:1px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.sr:last-of-type{border-bottom:none}
+.sr .sl2{color:var(--sub)}
+.snet-l{font-size:10px;color:var(--mut);margin:12px 0 3px;padding-top:12px;border-top:1px solid var(--brd)}
+.snet{font-family:'Bebas Neue';font-size:30px;color:var(--grn)}
 
-/* MODALS */
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.87);backdrop-filter:blur(8px);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .3s}
-.overlay.open{opacity:1;pointer-events:all}
-.modal{background:var(--card);border:1px solid var(--border-b);border-radius:18px;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;transform:scale(.96) translateY(16px);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
-.overlay.open .modal{transform:scale(1) translateY(0)}
-.modal-hdr{padding:22px 22px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-.modal-ttl{font-family:'Bebas Neue';font-size:22px;letter-spacing:1px}
-.mclose{background:var(--surface);border:1px solid var(--border);border-radius:7px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);transition:.2s;font-size:16px;line-height:1}
-.mclose:hover{background:var(--red);border-color:var(--red);color:#fff}
-.modal-body{padding:0 22px 22px}
-.tabs{display:flex;background:var(--surface);border-radius:9px;padding:3px;margin-bottom:20px}
-.tab{flex:1;padding:8px;text-align:center;font-size:13px;font-weight:600;cursor:pointer;border-radius:7px;transition:.2s;color:var(--sub)}
-.tab.active{background:var(--amber);color:#000}
-.err-msg{color:var(--red);font-size:12px;margin-top:8px;min-height:18px}
-.divider{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:12px 0}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+/* KYC */
+.kyc-steps{display:flex;gap:0;margin-bottom:24px;overflow-x:auto}
+.ks{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 14px;border-bottom:2px solid var(--brd);cursor:pointer;transition:.2s;min-width:80px;text-align:center}
+.ks.act{border-bottom-color:var(--amb);color:var(--amb)}
+.ks.done{border-bottom-color:var(--grn);color:var(--grn)}
+.ks svg{width:18px;height:18px}
+.ks span{font-size:10px;font-family:'JetBrains Mono'}
+.kyc-step-content{display:none}.kyc-step-content.act{display:block}
+.upload-btn-area{border:2px dashed var(--brd);border-radius:var(--r);padding:28px;text-align:center;cursor:pointer;transition:.3s;position:relative;background:var(--sur);margin-top:8px}
+.upload-btn-area:hover{border-color:var(--amb);background:var(--ags)}
+.upload-btn-area input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-btn-area svg{width:32px;height:32px;color:var(--amb);margin-bottom:8px}
+.upload-btn-area p{color:var(--sub);font-size:12px}
+.upload-btn-area .ft{font-family:'JetBrains Mono';font-size:10px;color:var(--mut);margin-top:5px}
+.preview-img{width:100%;max-height:140px;object-fit:cover;border-radius:var(--rs);margin-top:8px;display:none}
+
+/* MODAL */
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(10px);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .3s}
+.ovl.open{opacity:1;pointer-events:all}
+.mdl{background:var(--card);border:1px solid var(--brdb);border-radius:16px;width:100%;max-width:440px;max-height:88vh;overflow-y:auto;transform:scale(.95) translateY(16px);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.ovl.open .mdl{transform:scale(1) translateY(0)}
+.mdl.wide{max-width:560px}
+.mh{padding:20px 20px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.mttl{font-family:'Bebas Neue';font-size:20px;letter-spacing:1px}
+.mx{background:var(--sur);border:1px solid var(--brd);border-radius:7px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);transition:.2s;font-size:15px}
+.mx:hover{background:var(--red);border-color:var(--red);color:#fff}
+.mb{padding:0 20px 20px}
+.tabs2{display:flex;background:var(--sur);border-radius:9px;padding:3px;margin-bottom:18px}
+.tab2{flex:1;padding:7px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;border-radius:7px;transition:.2s;color:var(--sub)}
+.tab2.act{background:var(--amb);color:#000}
 
 /* ORDER FLOW */
-.step-dots{display:flex;gap:7px;margin-bottom:22px}
-.sd{flex:1;height:3px;border-radius:2px;background:var(--border);transition:.3s}
-.sd.active{background:var(--amber)}.sd.done{background:var(--green)}
-.step-tag{font-family:'JetBrains Mono';font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;text-transform:uppercase}
-.step-q{font-size:17px;font-weight:600;line-height:1.4;margin-bottom:16px}
-.info-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:13px;margin-bottom:14px;font-size:13px;color:var(--sub);line-height:1.6}
-.info-box strong{color:var(--amber)}
-.upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:36px 16px;text-align:center;cursor:pointer;transition:.3s;position:relative;background:var(--surface)}
-.upload-zone:hover,.upload-zone.drag{border-color:var(--amber);background:var(--ags)}
-.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
-.upload-zone svg{width:36px;height:36px;color:var(--amber);margin-bottom:10px}
-.upload-zone p{color:var(--sub);font-size:13px}
-.upload-zone span{color:var(--amber);font-weight:600}
-.uz-ft{font-family:'JetBrains Mono';font-size:10px;color:var(--muted);margin-top:6px}
-.parse-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:13px;margin:13px 0}
-.pf{color:var(--amber);font-weight:600;margin-bottom:5px;font-size:13px}
-.pi{font-size:12px;color:var(--sub);line-height:1.6}
-.ai-loading{display:flex;align-items:center;gap:10px;padding:14px 0;color:var(--sub);font-size:13px}
-.ai-spin{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
+.sdots{display:flex;gap:6px;margin-bottom:20px}
+.sd{flex:1;height:3px;border-radius:2px;background:var(--brd);transition:.3s}
+.sd.act{background:var(--amb)}.sd.dn{background:var(--grn)}
+.stag{font-family:'JetBrains Mono';font-size:9px;color:var(--mut);letter-spacing:1px;margin-bottom:5px;text-transform:uppercase}
+.sq{font-size:16px;font-weight:600;line-height:1.4;margin-bottom:14px}
+.ib{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:12px;margin-bottom:13px;font-size:12px;color:var(--sub);line-height:1.6}
+.ib strong{color:var(--amb)}
+.uz{border:2px dashed var(--brd);border-radius:var(--r);padding:32px 16px;text-align:center;cursor:pointer;transition:.3s;position:relative;background:var(--sur)}
+.uz:hover,.uz.drag{border-color:var(--amb);background:var(--ags)}
+.uz input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.uz svg{width:32px;height:32px;color:var(--amb);margin-bottom:8px}
+.uz p{color:var(--sub);font-size:12px}
+.uz span{color:var(--amb);font-weight:600}
+.uz .ft{font-family:'JetBrains Mono';font-size:9px;color:var(--mut);margin-top:5px}
+.pb2{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:12px;margin:12px 0}
+.pf{color:var(--amb);font-weight:600;margin-bottom:4px;font-size:12px}
+.pi2{font-size:11px;color:var(--sub);line-height:1.6}
+.ail{display:flex;align-items:center;gap:9px;padding:12px 0;color:var(--sub);font-size:12px}
+.asp{width:16px;height:16px;border:2px solid var(--brd);border-top-color:var(--amb);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
-.split-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.summary-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);overflow:hidden;margin-bottom:14px}
-.s-row{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;border-bottom:1px solid var(--border);font-size:13px}
-.s-row:last-child{border-bottom:none}
-.s-row .sl{color:var(--sub)}.s-row .sv{font-weight:600}
-.s-row.hl .sv{color:var(--amber);font-family:'Bebas Neue';font-size:22px}
-.policy-grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
-.pi2{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:11px}
-.pi2 .em{font-size:16px;margin-bottom:5px}
-.pi2 .pt{color:var(--amber);font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}
-.pi2 .pd{color:var(--sub);font-size:11px;line-height:1.5}
-.profit-preview{font-size:13px;min-height:20px;margin-bottom:12px}
+.sg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sb{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);overflow:hidden;margin-bottom:13px}
+.sr2{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--brd);font-size:12px}
+.sr2:last-child{border-bottom:none}
+.sr2 .sl{color:var(--sub)}.sr2 .sv{font-weight:600}
+.sr2.hl .sv{color:var(--amb);font-family:'Bebas Neue';font-size:20px}
+.pg2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:13px}
+.pi3{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:10px}
+.pi3 .em{font-size:14px;margin-bottom:4px}
+.pi3 .pt{color:var(--amb);font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.pi3 .pd{color:var(--sub);font-size:10px;line-height:1.5}
+.call-opt{border:1px solid var(--brd);border-radius:var(--rs);padding:13px;cursor:pointer;transition:.2s;margin-bottom:9px}
+.call-opt:hover{border-color:var(--amb);background:var(--ags)}
+.call-opt.sel{border-color:var(--amb);background:var(--ag)}
+.call-opt .co-ttl{font-weight:600;font-size:13px;margin-bottom:3px}
+.call-opt .co-sub{font-size:11px;color:var(--sub)}
+.call-opt .co-price{font-family:'Bebas Neue';font-size:18px;color:var(--grn);margin-top:5px}
+
+/* SUBSCRIPTION */
+.sub-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px}
+.sub-card{background:var(--card);border:2px solid var(--brd);border-radius:var(--r);padding:22px;cursor:pointer;transition:.2s;position:relative}
+.sub-card:hover{border-color:var(--amb)}
+.sub-card.act{border-color:var(--amb);background:var(--ag)}
+.sub-card .sc-name{font-family:'Bebas Neue';font-size:20px;letter-spacing:1px;margin-bottom:6px}
+.sub-card .sc-price{font-family:'Bebas Neue';font-size:32px;color:var(--amb);line-height:1}
+.sub-card .sc-period{font-size:11px;color:var(--mut)}
+.sub-card .sc-feat{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.sub-card .sc-feat li{list-style:none;font-size:12px;color:var(--sub);display:flex;align-items:center;gap:7px}
+.sub-card .sc-feat li::before{content:'✓';color:var(--grn);font-weight:700;flex-shrink:0}
+.sub-badge{position:absolute;top:-1px;right:14px;background:var(--amb);color:#000;font-size:9px;font-weight:700;padding:3px 8px;border-radius:0 0 6px 6px;font-family:'JetBrains Mono';letter-spacing:.5px}
+
+/* HELPDESK */
+.hd-tabs{display:flex;gap:10px;margin-bottom:20px}
+.hd-tab{flex:1;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:12px;text-align:center;cursor:pointer;transition:.2s}
+.hd-tab:hover{border-color:var(--amb)}
+.hd-tab.act{border-color:var(--amb);background:var(--ag)}
+.hd-tab .ht-icon{font-size:22px;margin-bottom:6px}
+.hd-tab .ht-ttl{font-weight:600;font-size:13px;margin-bottom:2px}
+.hd-tab .ht-sub{font-size:11px;color:var(--sub)}
+
+/* ABOUT */
+.about-sec{margin-bottom:28px}
+.about-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:24px;margin-bottom:14px}
+.about-ttl{font-family:'Bebas Neue';font-size:22px;letter-spacing:1px;margin-bottom:14px;color:var(--amb)}
+.gem-logo{width:180px;height:auto;border-radius:var(--rs);margin-bottom:14px;background:white;padding:12px}
+.cert-row{display:flex;align-items:center;gap:14px;padding:12px 0;border-bottom:1px solid var(--brd);font-size:13px}
+.cert-row:last-child{border-bottom:none}
+.cert-icon{font-size:24px;flex-shrink:0}
+.cert-label{font-size:11px;color:var(--mut);font-family:'JetBrains Mono'}
+.cert-val{font-weight:600;color:var(--amb);font-family:'JetBrains Mono';font-size:13px}
 
 /* TOAST */
-.toast-wrap{position:fixed;bottom:88px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
-@media(min-width:769px){.toast-wrap{bottom:24px;right:20px}}
-.toast{background:var(--card);border:1px solid var(--border);border-radius:var(--rs);padding:11px 15px;min-width:220px;font-size:13px;color:var(--text);box-shadow:0 6px 24px rgba(0,0,0,.4);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px}
-@keyframes toastIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
-.toast.success{border-color:var(--green)}.toast.error{border-color:var(--red)}.toast.info{border-color:var(--amber)}
-.td{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.toast.success .td{background:var(--green)}.toast.error .td{background:var(--red)}.toast.info .td{background:var(--amber)}
+.tw{position:fixed;bottom:88px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:7px}
+@media(min-width:769px){.tw{bottom:22px;right:18px}}
+.toast{background:var(--card);border:1px solid var(--brd);border-radius:var(--rs);padding:10px 14px;min-width:210px;font-size:12px;color:var(--txt);box-shadow:0 5px 20px rgba(0,0,0,.4);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px}
+@keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{border-color:var(--grn)}.toast.error{border-color:var(--red)}.toast.info{border-color:var(--amb)}
+.td{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.toast.success .td{background:var(--grn)}.toast.error .td{background:var(--red)}.toast.info .td{background:var(--amb)}
 
-/* SKELETON */
-.skel{background:linear-gradient(90deg,var(--surface) 25%,var(--card-h) 50%,var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px}
-@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* SKEL */
+.sk{background:linear-gradient(90deg,var(--sur) 25%,var(--cardh) 50%,var(--sur) 75%);background-size:200% 100%;animation:shim 1.5s infinite;border-radius:6px}
+@keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* OTP INPUT */
+.otp-wrap{display:flex;gap:8px;justify-content:center;margin:14px 0}
+.otp-inp{width:42px;height:48px;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);color:var(--txt);font-size:20px;font-family:'Bebas Neue';text-align:center;outline:none;transition:.2s}
+.otp-inp:focus{border-color:var(--amb);box-shadow:0 0 0 3px var(--ag)}
 </style>
 </head>
 <body>
 
 <header>
   <div class="hdr">
-    <div class="logo" onclick="showPage('marketplace')">DROP PRO<small>MARKETPLACE</small></div>
-    <div class="search-wrap">
+    <div class="logo" onclick="showPg('marketplace')">DROP PRO<small>MARKETPLACE</small></div>
+    <div class="sw">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <input type="text" id="searchInput" placeholder="Search products…" autocomplete="off">
     </div>
-    <div class="hdr-right">
-      <div class="ibtn" title="Notifications">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="17" height="17"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+    <div class="hdr-r">
+      <div class="ibtn" onclick="showPg('helpdesk')" title="Help Desk">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
       </div>
-      <button class="auth-btn" id="headerAuthBtn" onclick="openAuth()">Sign In</button>
+      <div class="ibtn" onclick="showPg('about')" title="About">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <button class="abtn" id="hAuthBtn" onclick="openAuth()">Sign In</button>
     </div>
   </div>
 </header>
 
 <!-- MARKETPLACE -->
-<div class="page active" id="pg-marketplace">
-  <div class="hero-wrap">
+<div class="pg act" id="pg-marketplace">
+  <div class="wrap">
     <div class="hero-card">
       <div>
         <div class="hero-tag">Dropship Marketplace</div>
-        <h1 class="hero-title">Upload. Sell.<br><span class="ac">Profit.</span></h1>
-        <p class="hero-sub">AI reads your order sheet automatically — finds quantities, calculates billing instantly. No manual work.</p>
+        <h1 class="hero-ttl">Upload. Sell.<br><span class="ac">Profit.</span></h1>
+        <p class="hero-sub">AI reads your order sheet, calculates billing instantly. Earn on every delivery.</p>
         <div class="hero-stats">
-          <div><div class="hs-num" id="statProd">—</div><div class="hs-lbl">Products</div></div>
-          <div><div class="hs-num">4</div><div class="hs-lbl">Day Return</div></div>
-          <div><div class="hs-num">COD</div><div class="hs-lbl">Available</div></div>
+          <div><div class="hn" id="statProd">—</div><div class="hl">Products</div></div>
+          <div><div class="hn">4</div><div class="hl">Day Return</div></div>
+          <div><div class="hn">COD</div><div class="hl">Available</div></div>
         </div>
       </div>
-      <div class="policy-pills">
+      <div class="pps">
         <div class="pp"><span class="d"></span>4-Day Return Policy</div>
         <div class="pp"><span class="d"></span>Unboxing Video Required</div>
-        <div class="pp"><span class="d w"></span>COD Charge Non-Refundable</div>
-        <div class="pp"><span class="d"></span>Razorpay Secure Payments</div>
-        <div class="pp"><span class="d"></span>AI-Powered Sheet Reading</div>
+        <div class="pp"><span class="d w"></span>COD Non-Refundable</div>
+        <div class="pp"><span class="d"></span>Razorpay Secure Pay</div>
+        <div class="pp"><span class="d"></span>AI Order Reading</div>
+        <div class="pp"><span class="d"></span>KYC Verified Resellers</div>
       </div>
     </div>
-  </div>
-  <div class="section-wrap">
-    <div class="filter-chips">
-      <div class="chip active" onclick="setFilter('all',this)">All Products</div>
+    <div class="chips">
+      <div class="chip act" onclick="setFilter('all',this)">All Products</div>
       <div class="chip" onclick="setFilter('cod',this)">COD Available</div>
       <div class="chip" onclick="setFilter('prepaid',this)">Prepaid Only</div>
     </div>
     <div id="productGrid">
-      <div class="prod-card"><div class="skel" style="height:190px"></div><div class="prod-body"><div class="skel" style="height:14px;margin-bottom:8px"></div><div class="skel" style="height:14px;width:55%"></div></div></div>
-      <div class="prod-card"><div class="skel" style="height:190px"></div><div class="prod-body"><div class="skel" style="height:14px;margin-bottom:8px"></div><div class="skel" style="height:14px;width:55%"></div></div></div>
-      <div class="prod-card"><div class="skel" style="height:190px"></div><div class="prod-body"><div class="skel" style="height:14px;margin-bottom:8px"></div><div class="skel" style="height:14px;width:55%"></div></div></div>
-      <div class="prod-card"><div class="skel" style="height:190px"></div><div class="prod-body"><div class="skel" style="height:14px;margin-bottom:8px"></div><div class="skel" style="height:14px;width:55%"></div></div></div>
+      <div class="pc"><div class="sk" style="height:180px"></div><div class="pb"><div class="sk" style="height:13px;margin-bottom:7px"></div><div class="sk" style="height:13px;width:55%"></div></div></div>
+      <div class="pc"><div class="sk" style="height:180px"></div><div class="pb"><div class="sk" style="height:13px;margin-bottom:7px"></div><div class="sk" style="height:13px;width:55%"></div></div></div>
+      <div class="pc"><div class="sk" style="height:180px"></div><div class="pb"><div class="sk" style="height:13px;margin-bottom:7px"></div><div class="sk" style="height:13px;width:55%"></div></div></div>
+      <div class="pc"><div class="sk" style="height:180px"></div><div class="pb"><div class="sk" style="height:13px;margin-bottom:7px"></div><div class="sk" style="height:13px;width:55%"></div></div></div>
     </div>
   </div>
 </div>
 
 <!-- DASHBOARD -->
-<div class="page" id="pg-dashboard">
-  <div class="section-wrap">
-    <div class="section-title">Dashboard</div>
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/></svg></div><div class="stat-val" id="dOrders">0</div><div class="stat-lbl">My Orders</div></div>
-      <div class="stat-card"><div class="stat-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="stat-val" id="dPaid">₹0</div><div class="stat-lbl">Total Paid</div></div>
-      <div class="stat-card"><div class="stat-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="stat-val" id="dProfit">₹0</div><div class="stat-lbl">Est. Profit</div></div>
-      <div class="stat-card"><div class="stat-icon"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="stat-val" id="dPending">0</div><div class="stat-lbl">Pending</div></div>
+<div class="pg" id="pg-dashboard">
+  <div class="wrap">
+    <div class="stl">Dashboard</div>
+    <div class="sg">
+      <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/></svg></div><div class="sv" id="dOrd">0</div><div class="sl">My Orders</div></div>
+      <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sv" id="dPaid">₹0</div><div class="sl">Total Paid</div></div>
+      <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="sv" id="dProfit">₹0</div><div class="sl">Est. Profit</div></div>
+      <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="sv" id="dPend">0</div><div class="sl">Pending</div></div>
     </div>
-    <div class="card" style="padding:20px">
-      <div style="font-family:'Bebas Neue';font-size:20px;letter-spacing:1px;margin-bottom:14px">Recent Orders</div>
-      <div id="dashRecent"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Sign in to see your orders</div></div>
+    <!-- Subscription status -->
+    <div class="card" style="padding:16px;margin-bottom:18px" id="subStatus"></div>
+    <div class="card" style="padding:18px">
+      <div style="font-family:'Bebas Neue';font-size:18px;letter-spacing:1px;margin-bottom:12px">Recent Orders</div>
+      <div id="dashRecent"><div style="color:var(--mut);font-size:12px;text-align:center;padding:18px">Sign in to see orders</div></div>
     </div>
   </div>
 </div>
 
 <!-- ORDERS -->
-<div class="page" id="pg-orders">
-  <div class="section-wrap">
-    <div class="section-title">My Orders</div>
-    <div class="orders-list" id="ordersList">
-      <div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">Sign in to view orders</div>
-    </div>
+<div class="pg" id="pg-orders">
+  <div class="wrap">
+    <div class="stl">My Orders</div>
+    <div class="ol" id="ordersList"><div style="color:var(--mut);font-size:12px;text-align:center;padding:36px">Sign in to view orders</div></div>
   </div>
 </div>
 
 <!-- PROFILE -->
-<div class="page" id="pg-profile">
-  <div class="section-wrap">
-    <div class="section-title">Profile</div>
-    <div class="profile-grid">
+<div class="pg" id="pg-profile">
+  <div class="wrap">
+    <div class="stl">Profile</div>
+    <div class="pg-grid">
       <div>
-        <div class="card" style="padding:22px;margin-bottom:14px">
-          <div class="avatar-big" id="profAvatar">?</div>
-          <div class="profile-name" id="profName">—</div>
-          <div class="profile-email" id="profEmail">—</div>
-          <div class="prof-stat"><span>Account Type</span><span class="psv">Reseller</span></div>
-          <div class="prof-stat"><span>Member Since</span><span class="psv" id="profSince">—</span></div>
-          <div class="prof-stat"><span>Total Orders</span><span class="psv" id="profOrders">—</span></div>
-          <div class="prof-stat"><span>Total Paid</span><span class="psv" id="profPaid">—</span></div>
+        <div class="card" style="padding:20px;margin-bottom:12px">
+          <div class="av" id="profAv">?</div>
+          <div class="pname" id="profName">—</div>
+          <div class="pemail" id="profEmail">—</div>
+          <div class="psr"><span>Account Type</span><span class="v">Reseller</span></div>
+          <div class="psr"><span>KYC Status</span><span class="v" id="profKYC">—</span></div>
+          <div class="psr"><span>Subscription</span><span class="v" id="profSub">None</span></div>
+          <div class="psr"><span>Since</span><span class="v" id="profSince">—</span></div>
+          <div class="psr"><span>Total Orders</span><span class="v" id="profOrd">—</span></div>
+          <div class="psr"><span>Total Paid</span><span class="v" id="profPaid">—</span></div>
         </div>
-        <div class="card" style="padding:20px">
-          <div class="form-group"><label class="form-label">Display Name</label><input class="form-input" id="editName" placeholder="Your name"></div>
-          <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="editPhone" placeholder="+91 XXXXX XXXXX"></div>
-          <div class="form-group"><label class="form-label">UPI ID (for settlements)</label><input class="form-input" id="editUPI" placeholder="yourname@upi"></div>
-          <button class="btn-full" onclick="saveProfile()">Save Profile</button>
-          <button class="btn-ghost" onclick="doSignOut()">Sign Out</button>
+        <div class="card" style="padding:18px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:14px">Edit Profile</div>
+          <div class="fg"><label class="lbl">Display Name</label><input class="inp" id="editName" placeholder="Your name"></div>
+          <div class="fg"><label class="lbl">Phone</label><input class="inp" id="editPhone" placeholder="+91 XXXXX XXXXX"></div>
+          <div style="border-top:1px solid var(--brd);padding-top:14px;margin-top:6px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+              Bank / UPI Details
+              <span style="font-size:10px;color:var(--mut);font-family:'JetBrains Mono'">Change requires OTP</span>
+            </div>
+            <div class="fg"><label class="lbl">UPI ID</label><input class="inp" id="editUPI" placeholder="yourname@upi"></div>
+            <div class="fg"><label class="lbl">Account Holder Name</label><input class="inp" id="editAccHolder" placeholder="Name as per bank"></div>
+            <div class="fg"><label class="lbl">Bank Name</label><input class="inp" id="editBankName" placeholder="State Bank of India"></div>
+            <div class="fg"><label class="lbl">Account Number</label><input class="inp" id="editAccNum" placeholder="XXXXXXXXXXXXXXXXX"></div>
+            <div class="fg"><label class="lbl">IFSC Code</label><input class="inp" id="editIFSC" placeholder="SBIN0000123"></div>
+          </div>
+          <button class="btn btn-a btn-w" onclick="initBankChange()" style="margin-top:4px">Save Profile & Bank Details</button>
+          <button class="btn btn-g btn-w" onclick="doSignOut()" style="margin-top:8px">Sign Out</button>
+        </div>
+        <!-- Subscription plans -->
+        <div class="card" style="padding:18px;margin-top:12px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:14px">Subscription Plans</div>
+          <div class="sub-plans" id="subPlansUI"></div>
         </div>
       </div>
       <div>
-        <div class="settle-block">
-          <div class="settle-ttl">💰 Settlement Summary <span style="font-size:11px;font-family:'JetBrains Mono';color:var(--muted);font-weight:400">Auto-calculated</span></div>
-          <div class="settle-row"><span class="sl">Total Orders</span><span id="setOrders">—</span></div>
-          <div class="settle-row"><span class="sl">Paid to Platform</span><span id="setPaid">—</span></div>
-          <div class="settle-row"><span class="sl">Expected Sales Value</span><span id="setExpected">—</span></div>
-          <div class="settle-row"><span class="sl">Gross Profit</span><span style="color:var(--green)" id="setGross">—</span></div>
-          <div class="settle-row"><span class="sl">Pending Value</span><span style="color:var(--amber)" id="setPending">—</span></div>
-          <div class="settle-net-lbl">Net Receivable (Profit − Pending)</div>
-          <div class="settle-net-val" id="setNet">₹0</div>
+        <div class="setl">
+          <div class="sttl">💰 Settlement <span style="font-size:11px;font-family:'JetBrains Mono';color:var(--mut);font-weight:400">Auto-calculated</span></div>
+          <div class="sr"><span class="sl2">Total Orders</span><span id="setOrd">—</span></div>
+          <div class="sr"><span class="sl2">Paid to Platform</span><span id="setPaid">—</span></div>
+          <div class="sr"><span class="sl2">Expected Sales</span><span id="setExp">—</span></div>
+          <div class="sr"><span class="sl2">Gross Profit</span><span style="color:var(--grn)" id="setGross">—</span></div>
+          <div class="sr"><span class="sl2">Pending Value</span><span style="color:var(--amb)" id="setPend">—</span></div>
+          <div class="snet-l">Net Receivable</div>
+          <div class="snet" id="setNet">₹0</div>
         </div>
-        <div class="settle-block">
-          <div class="settle-ttl" style="font-size:18px">Order Breakdown</div>
-          <div id="settleBreakdown" style="font-size:13px;color:var(--muted)">Loading…</div>
+        <div class="setl">
+          <div class="sttl" style="font-size:17px">Order Breakdown</div>
+          <div id="setBreak" style="font-size:12px;color:var(--mut)">Loading…</div>
+        </div>
+        <!-- KYC Section -->
+        <div class="setl" id="kycSection">
+          <div class="sttl" style="font-size:17px">KYC Verification</div>
+          <div id="kycContent">Loading…</div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- HELP DESK -->
+<div class="pg" id="pg-helpdesk">
+  <div class="wrap">
+    <div class="stl">Help Desk</div>
+    <div class="hd-tabs">
+      <div class="hd-tab act" onclick="switchHD('email',this)">
+        <div class="ht-icon">✉️</div>
+        <div class="ht-ttl">Send Email</div>
+        <div class="ht-sub">Get email support</div>
+      </div>
+      <div class="hd-tab" onclick="switchHD('callback',this)">
+        <div class="ht-icon">📞</div>
+        <div class="ht-ttl">Request Callback</div>
+        <div class="ht-sub">We'll call you back</div>
+      </div>
+    </div>
+    <div class="card" style="padding:22px">
+      <div id="hd-email-form">
+        <div class="fg"><label class="lbl">Your Name</label><input class="inp" id="hdName" placeholder="Full Name"></div>
+        <div class="fg"><label class="lbl">Email</label><input class="inp" type="email" id="hdEmail" placeholder="you@email.com"></div>
+        <div class="fg"><label class="lbl">Phone</label><input class="inp" id="hdPhone" placeholder="+91 XXXXX XXXXX"></div>
+        <div class="fg"><label class="lbl">Subject</label><input class="inp" id="hdSubject" placeholder="Issue summary"></div>
+        <div class="fg"><label class="lbl">Message</label><textarea class="inp" id="hdMsg" placeholder="Describe your issue in detail…"></textarea></div>
+        <button class="btn btn-a btn-w" onclick="submitTicket('email')">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Send to Coreconics@fastservice.com
+        </button>
+      </div>
+      <div id="hd-callback-form" style="display:none">
+        <div class="fg"><label class="lbl">Your Name</label><input class="inp" id="cbName" placeholder="Full Name"></div>
+        <div class="fg"><label class="lbl">Phone Number</label><input class="inp" id="cbPhone" placeholder="+91 XXXXX XXXXX"></div>
+        <div class="fg"><label class="lbl">Preferred Date</label><input class="inp" type="date" id="cbDate"></div>
+        <div class="fg"><label class="lbl">Preferred Time</label>
+          <select class="inp" id="cbTime">
+            <option value="">Select time slot</option>
+            <option value="9am-11am">9 AM – 11 AM</option>
+            <option value="11am-1pm">11 AM – 1 PM</option>
+            <option value="2pm-4pm">2 PM – 4 PM</option>
+            <option value="4pm-6pm">4 PM – 6 PM</option>
+          </select>
+        </div>
+        <div class="fg"><label class="lbl">Issue (optional)</label><textarea class="inp" id="cbMsg" placeholder="Brief description…"></textarea></div>
+        <button class="btn btn-a btn-w" onclick="submitTicket('callback')">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 13a19.79 19.79 0 01-3.07-8.67A2 2 0 012 2.18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+          Request Callback
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<div class="pg" id="pg-about">
+  <div class="wrap">
+    <div class="stl">About Us</div>
+    <div class="about-card">
+      <div class="about-ttl">Dropship Pro</div>
+      <p style="color:var(--sub);font-size:13px;line-height:1.7;margin-bottom:16px">We are a registered Indian dropshipping platform connecting resellers with premium products. Our mission is to empower entrepreneurs with technology-driven tools for seamless order management and business growth.</p>
+      <div class="cert-row"><div class="cert-icon">🏭</div><div><div class="cert-label">UDYAM REGISTRATION NUMBER</div><div class="cert-val">UDYAM-OD-19-0133466</div></div></div>
+      <div class="cert-row"><div class="cert-icon">🛒</div><div><div class="cert-label">Government E-Marketplace (GeM) Seller</div><div class="cert-val">Verified Seller</div></div></div>
+    </div>
+    <div class="about-card">
+      <div class="about-ttl" style="font-size:18px">Government E-Marketplace</div>
+      <img src="https://gem.gov.in/resources/images/gem-logo.png" alt="GeM Logo" class="gem-logo" onerror="this.src='https://upload.wikimedia.org/wikipedia/en/thumb/f/f8/Government_e_Marketplace_logo.svg/200px-Government_e_Marketplace_logo.svg.png'">
+      <p style="color:var(--sub);font-size:12px;line-height:1.6">We are a verified seller on India's Government E-Marketplace (GeM), the official procurement portal of the Government of India. GeM certification ensures transparency, quality assurance, and compliance with government standards.</p>
+    </div>
+    <div class="about-card">
+      <div class="about-ttl" style="font-size:18px">Our Policies</div>
+      <div class="cert-row"><div class="cert-icon">📹</div><div><div class="cert-label">Return Policy</div><div style="font-size:12px;color:var(--sub)">4-day return window. Unboxing video mandatory for all return claims.</div></div></div>
+      <div class="cert-row"><div class="cert-icon">💳</div><div><div class="cert-label">COD Policy</div><div style="font-size:12px;color:var(--sub)">COD extra charge is non-refundable on all orders, including returned ones.</div></div></div>
+      <div class="cert-row"><div class="cert-icon">🔒</div><div><div class="cert-label">Data Security</div><div style="font-size:12px;color:var(--sub)">All data encrypted. KYC documents stored securely in compliance with IT Act.</div></div></div>
+      <div class="cert-row"><div class="cert-icon">📧</div><div><div class="cert-label">Support Email</div><div style="font-size:12px;color:var(--amb)">Coreconics@fastservice.com</div></div></div>
     </div>
   </div>
 </div>
 
 <!-- BOTTOM NAV -->
 <div class="bnav">
-  <div class="bnav-inner">
-    <button class="bnav-item" id="bn-dashboard" onclick="showPage('dashboard')">
+  <div class="bnav-in">
+    <button class="bni" id="bn-dashboard" onclick="showPg('dashboard')">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard
     </button>
-    <button class="bnav-item active" id="bn-marketplace" onclick="showPage('marketplace')">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Marketplace
+    <button class="bni act" id="bn-marketplace" onclick="showPg('marketplace')">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>Market
     </button>
-    <button class="bnav-item" id="bn-orders" onclick="showPage('orders')">
+    <button class="bni" id="bn-orders" onclick="showPg('orders')">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>Orders
     </button>
-    <button class="bnav-item" id="bn-profile" onclick="showPage('profile')">
+    <button class="bni" id="bn-profile" onclick="showPg('profile')">
       <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Profile
     </button>
   </div>
 </div>
 
 <!-- AUTH MODAL -->
-<div class="overlay" id="authOverlay">
-  <div class="modal">
-    <div class="modal-hdr">
-      <div class="modal-ttl" id="authTitle">Sign In</div>
-      <div class="mclose" onclick="closeAuth()">✕</div>
-    </div>
-    <div class="modal-body">
-      <div class="tabs">
-        <div class="tab active" id="tabLogin" onclick="switchTab('login')">Sign In</div>
-        <div class="tab" id="tabReg" onclick="switchTab('register')">Register</div>
+<div class="ovl" id="authOvl">
+  <div class="mdl">
+    <div class="mh"><div class="mttl" id="authTtl">Sign In</div><div class="mx" onclick="closeAuth()">✕</div></div>
+    <div class="mb">
+      <div class="tabs2">
+        <div class="tab2 act" id="tabIn" onclick="switchAuth('in')">Sign In</div>
+        <div class="tab2" id="tabReg" onclick="switchAuth('reg')">Register</div>
       </div>
-      <div id="loginForm">
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="loginEmail" placeholder="you@email.com"></div>
-        <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-        <div class="err-msg" id="loginErr"></div>
-        <button class="btn-full" onclick="doLogin()" id="loginBtn" style="margin-top:10px">Sign In</button>
+      <div id="formIn">
+        <div class="fg"><label class="lbl">Email</label><input class="inp" type="email" id="inEmail" placeholder="you@email.com"></div>
+        <div class="fg"><label class="lbl">Password</label><input class="inp" type="password" id="inPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <div class="err" id="inErr"></div>
+        <button class="btn btn-a btn-w" onclick="doLogin()" id="inBtn" style="margin-top:8px">Sign In</button>
       </div>
-      <div id="regForm" style="display:none">
-        <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" type="text" id="regName" placeholder="Your Name"></div>
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="regEmail" placeholder="you@email.com"></div>
-        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" type="tel" id="regPhone" placeholder="+91 XXXXX XXXXX"></div>
-        <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="regPass" placeholder="Min 6 characters"></div>
-        <div class="err-msg" id="regErr"></div>
-        <button class="btn-full" onclick="doRegister()" id="regBtn" style="margin-top:10px">Create Account</button>
+      <div id="formReg" style="display:none">
+        <div class="fg"><label class="lbl">Full Name</label><input class="inp" id="regName" placeholder="Your Name"></div>
+        <div class="fg"><label class="lbl">Email</label><input class="inp" type="email" id="regEmail" placeholder="you@email.com"></div>
+        <div class="fg"><label class="lbl">Phone</label><input class="inp" type="tel" id="regPhone" placeholder="+91 XXXXX XXXXX"></div>
+        <div class="fg"><label class="lbl">Password (min 8 chars)</label><input class="inp" type="password" id="regPass" placeholder="Min 8 characters"></div>
+        <div class="err" id="regErr"></div>
+        <button class="btn btn-a btn-w" onclick="doRegister()" id="regBtn" style="margin-top:8px">Create Account</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ORDER MODAL -->
-<div class="overlay" id="orderOverlay">
-  <div class="modal" style="max-width:500px">
-    <div class="modal-hdr">
-      <div class="modal-ttl" id="orderModalTitle">Place Order</div>
-      <div class="mclose" onclick="closeOrderModal()">✕</div>
-    </div>
-    <div class="modal-body" id="orderModalBody"></div>
+<!-- ORDER FLOW MODAL -->
+<div class="ovl" id="orderOvl">
+  <div class="mdl wide">
+    <div class="mh"><div class="mttl" id="orderMTtl">Place Order</div><div class="mx" onclick="closeOrder()">✕</div></div>
+    <div class="mb" id="orderMBody"></div>
   </div>
 </div>
 
-<div class="toast-wrap" id="toastWrap"></div>
+<!-- KYC MODAL -->
+<div class="ovl" id="kycOvl">
+  <div class="mdl wide">
+    <div class="mh"><div class="mttl">KYC Verification</div><div class="mx" onclick="document.getElementById('kycOvl').classList.remove('open')">✕</div></div>
+    <div class="mb" id="kycBody">
+      <div class="ib">Complete KYC to start placing orders. Required by Indian regulations for income tax compliance.</div>
+      <div class="kyc-steps" id="kycSteps">
+        <div class="ks act" onclick="gotoKYC(0)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Basic</span></div>
+        <div class="ks" onclick="gotoKYC(1)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg><span>PAN</span></div>
+        <div class="ks" onclick="gotoKYC(2)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Aadhaar</span></div>
+        <div class="ks" onclick="gotoKYC(3)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg><span>Bank</span></div>
+        <div class="ks" onclick="gotoKYC(4)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><span>Selfie</span></div>
+      </div>
+      <!-- Step 0: Basic -->
+      <div class="kyc-step-content act" id="ksc-0">
+        <div class="fg"><label class="lbl">Full Name (as per PAN)</label><input class="inp" id="kName" placeholder="Legal full name"></div>
+        <div class="fg"><label class="lbl">Date of Birth</label><input class="inp" type="date" id="kDOB"></div>
+        <div class="fg"><label class="lbl">Mobile Number</label>
+          <div style="display:flex;gap:8px">
+            <input class="inp" id="kPhone" placeholder="+91 XXXXX XXXXX" style="flex:1">
+            <button class="btn btn-a" onclick="sendKYCOTP()" id="kOTPBtn" style="flex-shrink:0;padding:8px 14px;font-size:12px">Send OTP</button>
+          </div>
+        </div>
+        <div id="kOTPWrap" style="display:none">
+          <label class="lbl">Enter OTP</label>
+          <div class="otp-wrap" id="kycOtpInputs"></div>
+          <button class="btn btn-a btn-w" onclick="verifyKYCOTP()" style="margin-top:8px">Verify OTP</button>
+          <div class="err" id="kOTPErr"></div>
+        </div>
+        <button class="btn btn-a" onclick="gotoKYC(1)" style="margin-top:12px;width:100%">Next: PAN →</button>
+      </div>
+      <!-- Step 1: PAN -->
+      <div class="kyc-step-content" id="ksc-1">
+        <div class="fg"><label class="lbl">PAN Number</label><input class="inp" id="kPAN" placeholder="ABCDE1234F" style="text-transform:uppercase" maxlength="10"></div>
+        <div class="fg"><label class="lbl">PAN Card Photo</label>
+          <div class="upload-btn-area" id="panUploadArea">
+            <input type="file" accept="image/*,application/pdf" onchange="handleKYCFile(event,'pan')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <p>Upload PAN card image</p><div class="ft">JPG, PNG or PDF</div>
+          </div>
+          <img class="preview-img" id="panPreview">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-g" onclick="gotoKYC(0)" style="flex:1">← Back</button>
+          <button class="btn btn-a" onclick="gotoKYC(2)" style="flex:1">Next: Aadhaar →</button>
+        </div>
+      </div>
+      <!-- Step 2: Aadhaar -->
+      <div class="kyc-step-content" id="ksc-2">
+        <div class="ib" style="font-size:11px">Aadhaar is <strong>optional but preferred</strong> for identity + address verification.</div>
+        <div class="fg"><label class="lbl">Aadhaar Number (12 digits)</label><input class="inp" id="kAadhaar" placeholder="XXXX XXXX XXXX" maxlength="14"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-g" onclick="gotoKYC(1)" style="flex:1">← Back</button>
+          <button class="btn btn-a" onclick="gotoKYC(3)" style="flex:1">Next: Bank →</button>
+        </div>
+      </div>
+      <!-- Step 3: Bank -->
+      <div class="kyc-step-content" id="ksc-3">
+        <div class="fg"><label class="lbl">Account Holder Name</label><input class="inp" id="kBankHolder" placeholder="Name as per bank"></div>
+        <div class="fg"><label class="lbl">Bank Name</label><input class="inp" id="kBankName" placeholder="State Bank of India"></div>
+        <div class="fg"><label class="lbl">Account Number</label><input class="inp" id="kAccNum" placeholder="XXXXXXXXXXXXXXXXX"></div>
+        <div class="fg"><label class="lbl">IFSC Code</label><input class="inp" id="kIFSC" placeholder="SBIN0000123"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-g" onclick="gotoKYC(2)" style="flex:1">← Back</button>
+          <button class="btn btn-a" onclick="gotoKYC(4)" style="flex:1">Next: Selfie →</button>
+        </div>
+      </div>
+      <!-- Step 4: Selfie -->
+      <div class="kyc-step-content" id="ksc-4">
+        <div class="ib" style="font-size:11px">Upload a clear selfie or live photo for face verification to prevent fraud.</div>
+        <div class="upload-btn-area">
+          <input type="file" accept="image/*" capture="user" onchange="handleKYCFile(event,'selfie')">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <p>Take selfie or <span>upload photo</span></p>
+          <div class="ft">JPG or PNG, face clearly visible</div>
+        </div>
+        <img class="preview-img" id="selfiePreview">
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-g" onclick="gotoKYC(3)" style="flex:1">← Back</button>
+          <button class="btn btn-a" onclick="submitKYC()" style="flex:1">Submit KYC ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BANK OTP MODAL -->
+<div class="ovl" id="bankOtpOvl">
+  <div class="mdl">
+    <div class="mh"><div class="mttl">Verify Identity</div><div class="mx" onclick="document.getElementById('bankOtpOvl').classList.remove('open')">✕</div></div>
+    <div class="mb">
+      <div class="ib">To protect your bank details, enter your password and the OTP sent to your registered phone.</div>
+      <div class="fg"><label class="lbl">Current Password</label><input class="inp" type="password" id="bankPwd" placeholder="••••••••"></div>
+      <button class="btn btn-a btn-w" onclick="verifyPwdSendOTP()" id="sendBankOTPBtn">Verify & Send OTP</button>
+      <div id="bankOTPSection" style="display:none;margin-top:14px">
+        <label class="lbl">Enter OTP (sent to your phone)</label>
+        <div class="otp-wrap" id="bankOtpInputs"></div>
+        <button class="btn btn-a btn-w" onclick="confirmBankChange()" style="margin-top:10px">Confirm & Save Changes</button>
+      </div>
+      <div class="err" id="bankOtpErr"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tw" id="toastWrap"></div>
 
 <script>
-// ═══ CONFIG ═══════════════════════════════════════
-const SB_URL  = 'https://szvnnkukkgqddaahrwui.supabase.co';
-const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzE3MTUsImV4cCI6MjA5MjQwNzcxNX0.-13k_Yr7w4vr_8sG7dc9Vv0StQi1rFmz-O2isiXQdsY';
-const RZP_KEY = 'rzp_live_SSegtOEGykPOUN';
-const { createClient } = supabase;
-const db = createClient(SB_URL, SB_KEY);
+// ═══ CONFIG ═══════════════════════════════════════════════
+const SB_URL='https://szvnnkukkgqddaahrwui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzE3MTUsImV4cCI6MjA5MjQwNzcxNX0.-13k_Yr7w4vr_8sG7dc9Vv0StQi1rFmz-O2isiXQdsY';
+const RZP_KEY='rzp_live_SSegtOEGykPOUN';
+const TF_KEY='2503bcf6-237e-11f1-bcb0-0200cd936042';
+const {createClient}=supabase;
+const db=createClient(SB_URL,SB_KEY);
 
-// ═══ STATE ════════════════════════════════════════
-let currentUser=null, userProfile=null, allProducts=[], myOrders=[];
-let currentFilter='all', currentProduct=null, orderState={};
+// ═══ SECURITY ══════════════════════════════════════════════
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{
+  if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
+});
+// Devtools detection
+setInterval(()=>{
+  const t=new Date();
+  debugger;
+  if(new Date()-t>100)document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:monospace;color:#ff4757;background:#080a0e;font-size:18px">⚠️ DevTools detected. Access denied.</div>';
+},3000);
 
-// ═══ INIT ═════════════════════════════════════════
-async function init() {
-  const { data:{ session } } = await db.auth.getSession();
-  if (session?.user) await onLogin(session.user);
-  await loadProducts();
-  db.auth.onAuthStateChange(async (ev, sess) => {
-    if (ev==='SIGNED_IN' && sess?.user) await onLogin(sess.user);
-    if (ev==='SIGNED_OUT') onLogout();
+// ═══ STATE ════════════════════════════════════════════════
+let CU=null,UP=null,PRODS=[],ORDS=[],PLANS=[],CF='all';
+let CUR_PROD=null,OS={},KYC_DATA={panFile:null,selfieFile:null};
+let BANK_PENDING={};
+
+// ═══ INIT ══════════════════════════════════════════════════
+async function init(){
+  const {data:{session}}=await db.auth.getSession();
+  if(session?.user)await onLogin(session.user);
+  await loadProds();
+  await loadPlans();
+  db.auth.onAuthStateChange(async(ev,sess)=>{
+    if(ev==='SIGNED_IN'&&sess?.user)await onLogin(sess.user);
+    if(ev==='SIGNED_OUT')onLogout();
   });
   setupSearch();
+  buildOTPInputs('kycOtpInputs',6);
+  buildOTPInputs('bankOtpInputs',6);
+  // Set min date for callback
+  const d=document.getElementById('cbDate');
+  if(d)d.min=new Date().toISOString().split('T')[0];
 }
 
-// ═══ AUTH ═════════════════════════════════════════
-function openAuth(){ document.getElementById('authOverlay').classList.add('open'); }
-function closeAuth(){ document.getElementById('authOverlay').classList.remove('open'); }
-
-function switchTab(t){
-  document.getElementById('loginForm').style.display = t==='login'?'':'none';
-  document.getElementById('regForm').style.display   = t==='register'?'':'none';
-  document.getElementById('tabLogin').classList.toggle('active',t==='login');
-  document.getElementById('tabReg').classList.toggle('active',t==='register');
-  document.getElementById('authTitle').textContent = t==='login'?'Sign In':'Create Account';
+// ═══ AUTH ══════════════════════════════════════════════════
+function openAuth(){document.getElementById('authOvl').classList.add('open');}
+function closeAuth(){document.getElementById('authOvl').classList.remove('open');}
+function switchAuth(t){
+  document.getElementById('formIn').style.display=t==='in'?'':'none';
+  document.getElementById('formReg').style.display=t==='reg'?'':'none';
+  document.getElementById('tabIn').classList.toggle('act',t==='in');
+  document.getElementById('tabReg').classList.toggle('act',t==='reg');
+  document.getElementById('authTtl').textContent=t==='in'?'Sign In':'Create Account';
 }
-
 async function doLogin(){
-  const email=document.getElementById('loginEmail').value.trim();
-  const pass=document.getElementById('loginPass').value;
-  const btn=document.getElementById('loginBtn');
-  document.getElementById('loginErr').textContent='';
-  if(!email||!pass){ document.getElementById('loginErr').textContent='Fill all fields.'; return; }
-  btn.disabled=true; btn.textContent='Signing in…';
-  const { error } = await db.auth.signInWithPassword({ email, password:pass });
-  btn.disabled=false; btn.textContent='Sign In';
-  if(error){ document.getElementById('loginErr').textContent=error.message; return; }
-  closeAuth(); showToast('Welcome back!','success');
+  const email=document.getElementById('inEmail').value.trim();
+  const pass=document.getElementById('inPass').value;
+  const btn=document.getElementById('inBtn');
+  document.getElementById('inErr').textContent='';
+  if(!email||!pass){document.getElementById('inErr').textContent='Fill all fields.';return;}
+  btn.disabled=true;btn.textContent='Signing in…';
+  const {error}=await db.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false;btn.textContent='Sign In';
+  if(error){document.getElementById('inErr').textContent=error.message;return;}
+  closeAuth();toast('Welcome back!','success');
 }
-
 async function doRegister(){
   const name=document.getElementById('regName').value.trim();
   const email=document.getElementById('regEmail').value.trim();
@@ -463,544 +756,769 @@ async function doRegister(){
   const pass=document.getElementById('regPass').value;
   const btn=document.getElementById('regBtn');
   document.getElementById('regErr').textContent='';
-  if(!name||!email||!pass){ document.getElementById('regErr').textContent='Fill all required fields.'; return; }
-  if(pass.length<6){ document.getElementById('regErr').textContent='Password min 6 characters.'; return; }
-  btn.disabled=true; btn.textContent='Creating…';
-  const { data, error } = await db.auth.signUp({ email, password:pass, options:{ data:{ full_name:name, phone } } });
-  btn.disabled=false; btn.textContent='Create Account';
-  if(error){ document.getElementById('regErr').textContent=error.message; return; }
+  if(!name||!email||!pass){document.getElementById('regErr').textContent='Fill all required fields.';return;}
+  if(pass.length<8){document.getElementById('regErr').textContent='Password must be at least 8 characters.';return;}
+  btn.disabled=true;btn.textContent='Creating…';
+  const {data,error}=await db.auth.signUp({email,password:pass,options:{data:{full_name:name,phone}}});
+  btn.disabled=false;btn.textContent='Create Account';
+  if(error){document.getElementById('regErr').textContent=error.message;return;}
   if(data.user){
-    await db.from('users_profile').upsert({ id:data.user.id, full_name:name, email, phone, role:'reseller', created_at:new Date().toISOString() });
+    await db.from('users_profile').upsert({id:data.user.id,email,full_name:name,phone,role:'reseller',kyc_status:'pending',created_at:new Date().toISOString()});
   }
-  closeAuth(); showToast('Account created! Check your email.','success');
+  closeAuth();toast('Account created! Check email to verify.','success');
 }
-
 async function doSignOut(){
   await db.auth.signOut();
-  showToast('Signed out.','info');
-  showPage('marketplace');
+  toast('Signed out.','info');
+  showPg('marketplace');
 }
-
 async function onLogin(user){
-  currentUser=user;
-  const btn=document.getElementById('headerAuthBtn');
-  btn.textContent='Sign Out'; btn.className='auth-btn out'; btn.onclick=doSignOut;
-  const { data } = await db.from('users_profile').select('*').eq('id',user.id).single();
-  userProfile=data;
-  if(!userProfile){
+  CU=user;
+  const btn=document.getElementById('hAuthBtn');
+  btn.textContent='Sign Out';btn.className='abtn out';btn.onclick=doSignOut;
+  const {data}=await db.from('users_profile').select('*').eq('id',user.id).single();
+  UP=data;
+  if(!UP){
     const nm=user.user_metadata?.full_name||user.email.split('@')[0];
-    await db.from('users_profile').upsert({ id:user.id, email:user.email, full_name:nm, role:'reseller', created_at:new Date().toISOString() });
-    const { data:d2 } = await db.from('users_profile').select('*').eq('id',user.id).single();
-    userProfile=d2;
+    await db.from('users_profile').upsert({id:user.id,email:user.email,full_name:nm,role:'reseller',kyc_status:'pending',created_at:new Date().toISOString()});
+    const {data:d2}=await db.from('users_profile').select('*').eq('id',user.id).single();
+    UP=d2;
   }
   await loadMyOrders();
-  renderDashboard(); renderProfilePage();
+  renderDash();renderProfile();
 }
-
 function onLogout(){
-  currentUser=null; userProfile=null; myOrders=[];
-  const btn=document.getElementById('headerAuthBtn');
-  btn.textContent='Sign In'; btn.className='auth-btn'; btn.onclick=openAuth;
-  document.getElementById('dOrders').textContent='0';
-  document.getElementById('dPaid').textContent='₹0';
-  document.getElementById('dProfit').textContent='₹0';
-  document.getElementById('dPending').textContent='0';
-  document.getElementById('dashRecent').innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">Sign in to see your orders</div>';
+  CU=null;UP=null;ORDS=[];
+  const btn=document.getElementById('hAuthBtn');
+  btn.textContent='Sign In';btn.className='abtn';btn.onclick=openAuth;
 }
 
-// ═══ NAVIGATION ═══════════════════════════════════
-function showPage(name){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.bnav-item').forEach(b=>b.classList.remove('active'));
-  const pg=document.getElementById('pg-'+name);
-  if(pg) pg.classList.add('active');
-  const bn=document.getElementById('bn-'+name);
-  if(bn) bn.classList.add('active');
-  if((name==='orders'||name==='dashboard'||name==='profile')&&!currentUser){ openAuth(); showToast('Please sign in first.','info'); showPage('marketplace'); return; }
-  if(name==='orders') renderOrdersPage();
-  if(name==='profile') renderProfilePage();
-  if(name==='dashboard') renderDashboard();
+// ═══ NAVIGATION ════════════════════════════════════════════
+function showPg(name){
+  const prot=['dashboard','orders','profile'];
+  if(prot.includes(name)&&!CU){openAuth();toast('Sign in first.','info');return;}
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('act'));
+  document.querySelectorAll('.bni').forEach(b=>b.classList.remove('act'));
+  document.getElementById('pg-'+name)?.classList.add('act');
+  document.getElementById('bn-'+name)?.classList.add('act');
+  if(name==='orders')renderOrdersPage();
+  if(name==='profile'){renderProfile();loadSubPlansUI();}
+  if(name==='dashboard')renderDash();
 }
 
-// ═══ PRODUCTS ═════════════════════════════════════
-async function loadProducts(){
-  try{
-    const { data, error } = await db.from('products').select('*').eq('active',true).order('created_at',{ ascending:false });
-    if(error) throw error;
-    allProducts=data||[];
-  }catch{ allProducts=demoProducts(); }
-  document.getElementById('statProd').textContent=allProducts.length;
-  renderGrid(allProducts);
+// ═══ PRODUCTS ══════════════════════════════════════════════
+async function loadProds(){
+  try{const {data,error}=await db.from('products').select('*').eq('active',true).order('created_at',{ascending:false});if(error)throw error;PRODS=data||[];}
+  catch{PRODS=demoProd();}
+  document.getElementById('statProd').textContent=PRODS.length;
+  renderGrid(PRODS);
 }
-
-function demoProducts(){
-  return [
-    {id:1,name:'Rimless Reading Glasses Premium',price:599,cod_charge:61,image_url:'',active:true,cod_available:true,category:'accessories'},
-    {id:2,name:'Handmade Golden Chain Premium Finish',price:399,cod_charge:40,image_url:'',active:true,cod_available:true,category:'jewelry'},
-    {id:3,name:'Golden Coated Luxury Bracelet Set',price:699,cod_charge:65,image_url:'',active:true,cod_available:true,category:'jewelry'},
-    {id:4,name:'SafeGuard Extreme Protection Gloves',price:799,cod_charge:70,image_url:'',active:true,cod_available:true,category:'safety'},
-    {id:5,name:'Bluetooth Neckband Pro 2024',price:899,cod_charge:0,image_url:'',active:true,cod_available:false,category:'electronics'},
-    {id:6,name:'Magnetic Car Phone Mount Stand',price:449,cod_charge:55,image_url:'',active:true,cod_available:true,category:'accessories'},
-  ];
-}
-
-function renderGrid(products){
+function demoProd(){return[
+  {id:1,name:'Rimless Reading Glasses Premium',price:599,cod_charge:61,image_url:'',active:true,cod_available:true,category:'accessories'},
+  {id:2,name:'Handmade Golden Chain',price:399,cod_charge:40,image_url:'',active:true,cod_available:true,category:'jewelry'},
+  {id:3,name:'SafeGuard Extreme Gloves',price:799,cod_charge:70,image_url:'',active:true,cod_available:true,category:'safety'},
+  {id:4,name:'Bluetooth Neckband Pro',price:899,cod_charge:0,image_url:'',active:true,cod_available:false,category:'electronics'},
+  {id:5,name:'Magnetic Car Mount',price:449,cod_charge:55,image_url:'',active:true,cod_available:true,category:'accessories'},
+];}
+function renderGrid(prods){
   const g=document.getElementById('productGrid');
-  if(!products.length){
-    g.innerHTML=`<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5"/></svg><h3>No Products Found</h3><p>Try a different search or filter</p></div>`;
-    return;
-  }
-  g.innerHTML=products.map((p,i)=>`
-    <div class="prod-card" onclick="openOrder(${p.id})" style="animation-delay:${i*.05}s">
-      <div class="prod-img-wrap">
-        ${p.image_url?`<img src="${p.image_url}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'prod-img-ph\\'><svg width=\\'36\\' fill=\\'none\\' viewBox=\\'0 0 24 24\\' stroke=\\'currentColor\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/></svg></div>'">`:`<div class="prod-img-ph"><svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`}
-        <div class="prod-badge ${p.cod_available?'bc':'bp'}">${p.cod_available?'COD':'PREPAID'}</div>
+  if(!prods.length){g.innerHTML=`<div class="empty-s"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7"/></svg><h3>No Products</h3><p>Try different search</p></div>`;return;}
+  g.innerHTML=prods.map((p,i)=>`
+    <div class="pc" onclick="openOrder(${p.id})" style="animation-delay:${i*.05}s">
+      <div class="pi-wrap">
+        ${p.image_url?`<img src="${p.image_url}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'pi-ph\\'><svg width=\\'32\\' fill=\\'none\\' viewBox=\\'0 0 24 24\\' stroke=\\'currentColor\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\'/></svg></div>'">`:`<div class="pi-ph"><svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>`}
+        <div class="pbdg ${p.cod_available?'cod':'pre'}">${p.cod_available?'COD':'PREPAID'}</div>
       </div>
-      <div class="prod-body">
-        <div class="prod-name">${p.name}</div>
-        <div class="prod-price">₹${p.price.toLocaleString()}</div>
-        <div class="prod-mrp-lbl">MRP per unit</div>
-        ${p.cod_available&&p.cod_charge?`<div class="cod-tag">COD extra: ₹${p.cod_charge}</div>`:''}
-        <button class="btn-upload" onclick="event.stopPropagation();openOrder(${p.id})">
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="pb">
+        <div class="pn">${p.name}</div>
+        <div class="pp2">₹${p.price.toLocaleString()}</div>
+        <div class="pm">MRP per unit</div>
+        ${p.cod_available&&p.cod_charge?`<div class="ct">COD extra: ₹${p.cod_charge}</div>`:''}
+        <button class="upl" onclick="event.stopPropagation();openOrder(${p.id})">
+          <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Upload Sheet & Order
         </button>
       </div>
     </div>`).join('');
 }
-
 function setupSearch(){
   let t;
   document.getElementById('searchInput').addEventListener('input',e=>{
-    clearTimeout(t);
-    t=setTimeout(()=>{
+    clearTimeout(t);t=setTimeout(()=>{
       const q=e.target.value.trim().toLowerCase();
-      const base=q?allProducts.filter(p=>p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)):allProducts;
+      const base=q?PRODS.filter(p=>p.name.toLowerCase().includes(q)||(p.category||'').toLowerCase().includes(q)):PRODS;
       applyFilter(base);
     },180);
   });
 }
-
-function setFilter(type,el){
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active'); currentFilter=type; applyFilter(allProducts);
-}
-
-function applyFilter(products){
-  let out=products;
-  if(currentFilter==='cod') out=products.filter(p=>p.cod_available);
-  if(currentFilter==='prepaid') out=products.filter(p=>!p.cod_available);
+function setFilter(type,el){document.querySelectorAll('.chip').forEach(c=>c.classList.remove('act'));el.classList.add('act');CF=type;applyFilter(PRODS);}
+function applyFilter(prods){
+  let out=prods;
+  if(CF==='cod')out=prods.filter(p=>p.cod_available);
+  if(CF==='prepaid')out=prods.filter(p=>!p.cod_available);
   renderGrid(out);
 }
 
-// ═══ MY ORDERS ════════════════════════════════════
+// ═══ ORDERS ════════════════════════════════════════════════
 async function loadMyOrders(){
-  if(!currentUser) return;
-  try{
-    const { data } = await db.from('orders').select('*').eq('user_id',currentUser.id).order('created_at',{ ascending:false });
-    myOrders=data||[];
-  }catch{ myOrders=[]; }
+  if(!CU)return;
+  try{const {data}=await db.from('orders').select('*').eq('user_id',CU.id).order('created_at',{ascending:false});ORDS=data||[];}
+  catch{ORDS=[];}
 }
-
 function renderOrdersPage(){
-  const list=document.getElementById('ordersList');
-  if(!currentUser){ list.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:40px">Please sign in to view orders.</div>'; return; }
-  if(!myOrders.length){
-    list.innerHTML=`<div class="empty-state"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg><h3>No Orders Yet</h3><p>Place your first order from the Marketplace</p></div>`;
-    return;
-  }
-  list.innerHTML=myOrders.map(o=>{
-    const estProfit=o.seller_price&&o.product_price?(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0)):0;
-    return `<div class="order-card">
-      <div class="oc-top">
-        <div class="oc-id">#${String(o.id).substring(0,8).toUpperCase()}</div>
-        <span class="status-badge s-${o.status||'pending'}">${(o.status||'pending').toUpperCase()}</span>
+  const l=document.getElementById('ordersList');
+  if(!CU){l.innerHTML='<div style="color:var(--mut);text-align:center;padding:32px;font-size:12px">Sign in to view orders.</div>';return;}
+  if(!ORDS.length){l.innerHTML='<div style="color:var(--mut);text-align:center;padding:32px;font-size:12px">No orders yet. Head to Marketplace!</div>';return;}
+  l.innerHTML=ORDS.map(o=>{
+    const ep=o.seller_price&&o.product_price?(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0)):0;
+    return `<div class="oc">
+      <div class="oct"><div class="ocid">#${String(o.id).substring(0,8).toUpperCase()}</div><span class="badge b-${stcls(o.status)}">${(o.status||'pending').toUpperCase()}</span></div>
+      <div class="ocprod">${o.product_name}</div>
+      <div class="ocm">
+        ${o.cod_count?`<div class="ocp">COD: ${o.cod_count}</div>`:''}
+        ${o.prepaid_count?`<div class="ocp">Prepaid: ${o.prepaid_count}</div>`:''}
+        ${o.call_confirmation?`<div class="ocp" style="color:var(--blu)">Call Conf. ${o.call_recording?'+ Recording':''}</div>`:''}
+        ${o.is_manual?`<div class="ocp" style="color:var(--amb)">Manual Order</div>`:''}
+        <div class="ocp">${new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
       </div>
-      <div class="oc-prod">${o.product_name}</div>
-      <div class="oc-meta">
-        ${o.cod_count?`<div class="oc-pill">COD: ${o.cod_count} units</div>`:''}
-        ${o.prepaid_count?`<div class="oc-pill">Prepaid: ${o.prepaid_count} units</div>`:''}
-        ${o.seller_price?`<div class="oc-pill">Sell @ ₹${o.seller_price}</div>`:''}
-        <div class="oc-pill">${new Date(o.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</div>
-      </div>
-      <div class="oc-bottom">
-        <div class="oc-amt">₹${(o.total_paid||0).toLocaleString()}</div>
-        ${estProfit>0?`<div class="oc-profit">+₹${estProfit.toLocaleString()} profit</div>`:''}
+      <div class="ocb">
+        <div class="oca">₹${(o.total_paid||0).toLocaleString()}</div>
+        ${ep>0?`<div class="ocp2">+₹${ep.toLocaleString()} profit</div>`:''}
       </div>
     </div>`;
   }).join('');
 }
+function stcls(s){const m={paid:'grn',pending:'amb',shipped:'blu',delivered:'tel',cancelled:'red',processing:'blu'};return m[s]||'amb';}
 
-function renderDashboard(){
-  if(!currentUser) return;
-  const total=myOrders.length;
-  const paid=myOrders.reduce((s,o)=>s+(o.total_paid||0),0);
-  const pending=myOrders.filter(o=>['pending','processing'].includes(o.status)).length;
-  const profit=myOrders.reduce((s,o)=>{
-    if(!o.seller_price||!o.product_price) return s;
-    return s+(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0));
-  },0);
-  document.getElementById('dOrders').textContent=total;
+function renderDash(){
+  if(!CU)return;
+  document.getElementById('dOrd').textContent=ORDS.length;
+  const paid=ORDS.reduce((s,o)=>s+(o.total_paid||0),0);
+  const pend=ORDS.filter(o=>['pending','processing'].includes(o.status)).length;
+  const profit=ORDS.reduce((s,o)=>{if(!o.seller_price||!o.product_price)return s;return s+(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0));},0);
   document.getElementById('dPaid').textContent='₹'+paid.toLocaleString();
   document.getElementById('dProfit').textContent='₹'+Math.max(0,profit).toLocaleString();
-  document.getElementById('dPending').textContent=pending;
+  document.getElementById('dPend').textContent=pend;
+  // Subscription badge
+  const ss=document.getElementById('subStatus');
+  if(UP?.subscription_plan&&UP.subscription_plan!=='none'){
+    const exp=UP.subscription_expiry?new Date(UP.subscription_expiry).toLocaleDateString('en-IN'):'—';
+    ss.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:11px;color:var(--mut);font-family:'JetBrains Mono'">ACTIVE SUBSCRIPTION</div><div style="font-weight:600;margin-top:2px">${UP.subscription_plan==='rto_call'?'RTO + Call Confirmation':'RTO Basic'}</div></div><div><span class="badge b-grn">ACTIVE</span><div style="font-size:10px;color:var(--mut);margin-top:3px">Renews: ${exp}</div></div></div>`;
+  }else{
+    ss.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px">No active subscription</div><button class="btn btn-a" onclick="showPg('profile')" style="font-size:11px;padding:6px 12px">View Plans</button></div>`;
+  }
   const rec=document.getElementById('dashRecent');
-  if(!myOrders.length){ rec.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding:20px">No orders yet — head to Marketplace!</div>'; return; }
-  rec.innerHTML=myOrders.slice(0,6).map(o=>`
-    <div class="order-row-dash">
-      <div class="or-id">#${String(o.id).substring(0,8).toUpperCase()}</div>
-      <div class="or-prod">${o.product_name}</div>
-      <div class="or-amt">₹${(o.total_paid||0).toLocaleString()}</div>
-      <span class="status-badge s-${o.status||'pending'}">${(o.status||'pending').toUpperCase()}</span>
+  if(!ORDS.length){rec.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">No orders yet</div>';return;}
+  rec.innerHTML=ORDS.slice(0,5).map(o=>`
+    <div class="or">
+      <div class="oid">#${String(o.id).substring(0,8).toUpperCase()}</div>
+      <div class="opn">${o.product_name}</div>
+      <div class="oa">₹${(o.total_paid||0).toLocaleString()}</div>
+      <span class="badge b-${stcls(o.status)}">${(o.status||'pending').toUpperCase()}</span>
     </div>`).join('');
 }
 
-function renderProfilePage(){
-  if(!currentUser) return;
-  const u=currentUser, p=userProfile;
-  const name=p?.full_name||u.email.split('@')[0];
-  document.getElementById('profAvatar').textContent=name.charAt(0).toUpperCase();
+// ═══ PROFILE ═══════════════════════════════════════════════
+function renderProfile(){
+  if(!CU)return;
+  const name=UP?.full_name||CU.email.split('@')[0];
+  document.getElementById('profAv').textContent=name.charAt(0).toUpperCase();
   document.getElementById('profName').textContent=name;
-  document.getElementById('profEmail').textContent=u.email;
-  document.getElementById('profSince').textContent=new Date(u.created_at||Date.now()).toLocaleDateString('en-IN',{month:'short',year:'numeric'});
-  document.getElementById('editName').value=p?.full_name||'';
-  document.getElementById('editPhone').value=p?.phone||'';
-  document.getElementById('editUPI').value=p?.upi||'';
-  const total=myOrders.length;
-  const paid=myOrders.reduce((s,o)=>s+(o.total_paid||0),0);
-  const pendingVal=myOrders.filter(o=>['pending','processing'].includes(o.status)).reduce((s,o)=>s+(o.total_paid||0),0);
-  const expectedSales=myOrders.reduce((s,o)=>{
-    if(!o.seller_price) return s;
-    return s+o.seller_price*((o.cod_count||0)+(o.prepaid_count||0));
-  },0);
-  const gross=expectedSales-paid;
-  document.getElementById('profOrders').textContent=total;
+  document.getElementById('profEmail').textContent=CU.email;
+  document.getElementById('profSince').textContent=new Date(CU.created_at||Date.now()).toLocaleDateString('en-IN',{month:'short',year:'numeric'});
+  const kycs=UP?.kyc_status||'pending';
+  const kbdg=document.getElementById('profKYC');
+  kbdg.innerHTML=`<span class="badge b-${kycs==='approved'?'grn':kycs==='submitted'?'amb':'red'}">${kycs.toUpperCase()}</span>`;
+  const subp=UP?.subscription_plan;
+  document.getElementById('profSub').textContent=subp&&subp!=='none'?(subp==='rto_call'?'RTO+Call':'RTO Basic'):'None';
+  document.getElementById('editName').value=UP?.full_name||'';
+  document.getElementById('editPhone').value=UP?.phone||'';
+  document.getElementById('editUPI').value=UP?.upi||'';
+  document.getElementById('editAccHolder').value=UP?.account_holder_name||'';
+  document.getElementById('editBankName').value=UP?.bank_name||'';
+  document.getElementById('editAccNum').value=UP?.account_number||'';
+  document.getElementById('editIFSC').value=UP?.ifsc_code||'';
+  const tot=ORDS.length;
+  const paid=ORDS.reduce((s,o)=>s+(o.total_paid||0),0);
+  const pendV=ORDS.filter(o=>['pending','processing'].includes(o.status)).reduce((s,o)=>s+(o.total_paid||0),0);
+  const expSales=ORDS.reduce((s,o)=>{if(!o.seller_price)return s;return s+o.seller_price*((o.cod_count||0)+(o.prepaid_count||0));},0);
+  const gross=expSales-paid;
+  document.getElementById('profOrd').textContent=tot;
   document.getElementById('profPaid').textContent='₹'+paid.toLocaleString();
-  document.getElementById('setOrders').textContent=total;
+  document.getElementById('setOrd').textContent=tot;
   document.getElementById('setPaid').textContent='₹'+paid.toLocaleString();
-  document.getElementById('setExpected').textContent='₹'+expectedSales.toLocaleString();
+  document.getElementById('setExp').textContent='₹'+expSales.toLocaleString();
   document.getElementById('setGross').textContent='₹'+Math.max(0,gross).toLocaleString();
-  document.getElementById('setPending').textContent='₹'+pendingVal.toLocaleString();
-  document.getElementById('setNet').textContent='₹'+Math.max(0,gross-pendingVal).toLocaleString();
-  const bd=document.getElementById('settleBreakdown');
-  if(!myOrders.length){ bd.innerHTML='<div style="text-align:center;padding:16px">Place orders to see breakdown</div>'; return; }
-  const codUnits=myOrders.reduce((s,o)=>s+(o.cod_count||0),0);
-  const preUnits=myOrders.reduce((s,o)=>s+(o.prepaid_count||0),0);
+  document.getElementById('setPend').textContent='₹'+pendV.toLocaleString();
+  document.getElementById('setNet').textContent='₹'+Math.max(0,gross-pendV).toLocaleString();
+  const bd=document.getElementById('setBreak');
+  if(!ORDS.length){bd.innerHTML='<div style="text-align:center;padding:14px">No orders to show</div>';return;}
   bd.innerHTML=`
-    <div class="settle-row"><span class="sl">COD Units Ordered</span><span style="color:var(--orange)">${codUnits}</span></div>
-    <div class="settle-row"><span class="sl">Prepaid Units Ordered</span><span style="color:var(--teal)">${preUnits}</span></div>
-    <div class="settle-row"><span class="sl">Paid Orders</span><span>${myOrders.filter(o=>['paid','shipped','delivered'].includes(o.status)).length}</span></div>
-    <div class="settle-row"><span class="sl">Pending Orders</span><span style="color:var(--amber)">${myOrders.filter(o=>o.status==='pending').length}</span></div>
-    <div class="settle-row"><span class="sl">Delivered Orders</span><span style="color:var(--green)">${myOrders.filter(o=>o.status==='delivered').length}</span></div>`;
+    <div class="sr"><span class="sl2">COD Units</span><span style="color:var(--ora)">${ORDS.reduce((s,o)=>s+(o.cod_count||0),0)}</span></div>
+    <div class="sr"><span class="sl2">Prepaid Units</span><span style="color:var(--tel)">${ORDS.reduce((s,o)=>s+(o.prepaid_count||0),0)}</span></div>
+    <div class="sr"><span class="sl2">Delivered</span><span style="color:var(--grn)">${ORDS.filter(o=>o.status==='delivered').length}</span></div>
+    <div class="sr"><span class="sl2">Cancelled</span><span style="color:var(--red)">${ORDS.filter(o=>o.status==='cancelled').length}</span></div>`;
+  // KYC section
+  renderKYCSection();
 }
 
-async function saveProfile(){
-  if(!currentUser){ showToast('Please sign in.','error'); return; }
-  const updates={ full_name:document.getElementById('editName').value.trim(), phone:document.getElementById('editPhone').value.trim(), upi:document.getElementById('editUPI').value.trim() };
-  await db.from('users_profile').update(updates).eq('id',currentUser.id);
-  userProfile={ ...userProfile, ...updates };
-  document.getElementById('profName').textContent=updates.full_name||userProfile?.email?.split('@')[0];
-  showToast('Profile saved!','success');
+function renderKYCSection(){
+  const kc=document.getElementById('kycContent');
+  const status=UP?.kyc_status||'pending';
+  if(status==='approved'){
+    kc.innerHTML=`<div style="text-align:center;padding:14px"><div style="font-size:28px;margin-bottom:8px">✅</div><div style="font-weight:600;color:var(--grn)">KYC Approved</div><div style="font-size:11px;color:var(--mut);margin-top:4px">Your account is fully verified</div></div>`;
+  }else if(status==='submitted'){
+    kc.innerHTML=`<div style="text-align:center;padding:14px"><div style="font-size:28px;margin-bottom:8px">⏳</div><div style="font-weight:600;color:var(--amb)">KYC Under Review</div><div style="font-size:11px;color:var(--mut);margin-top:4px">Admin will review within 24-48 hours</div></div>`;
+  }else if(status==='rejected'){
+    kc.innerHTML=`<div style="text-align:center;padding:14px"><div style="font-size:28px;margin-bottom:8px">❌</div><div style="font-weight:600;color:var(--red)">KYC Rejected</div><div style="font-size:11px;color:var(--mut);margin-top:4px">Please re-submit with correct documents</div><button class="btn btn-a btn-w" onclick="openKYC()" style="margin-top:12px">Re-submit KYC</button></div>`;
+  }else{
+    kc.innerHTML=`<div style="text-align:center;padding:14px"><div style="font-size:28px;margin-bottom:8px">📋</div><div style="font-weight:600;margin-bottom:6px">KYC Required</div><div style="font-size:11px;color:var(--mut);margin-bottom:14px">Complete KYC to place your first order. Required for compliance.</div><button class="btn btn-a btn-w" onclick="openKYC()">Complete KYC Now</button></div>`;
+  }
 }
 
-// ═══ ORDER FLOW ═══════════════════════════════════
-function openOrder(productId){
-  if(!currentUser){ openAuth(); showToast('Sign in to place orders.','info'); return; }
-  currentProduct=allProducts.find(p=>p.id===productId);
-  if(!currentProduct) return;
-  orderState={ step:1, file:null, parsed:null, sellerPrice:0, codCount:0, prepaidCount:0 };
-  const t=currentProduct.name;
-  document.getElementById('orderModalTitle').textContent=t.length>34?t.slice(0,34)+'…':t;
+// ═══ KYC ═══════════════════════════════════════════════════
+function openKYC(){document.getElementById('kycOvl').classList.add('open');}
+function gotoKYC(i){
+  document.querySelectorAll('.kyc-step-content').forEach(s=>s.classList.remove('act'));
+  document.getElementById('ksc-'+i)?.classList.add('act');
+  document.querySelectorAll('.ks').forEach((s,idx)=>{s.classList.toggle('act',idx===i);});
+}
+async function sendKYCOTP(){
+  const phone=document.getElementById('kPhone').value.trim();
+  if(!phone){toast('Enter mobile number','error');return;}
+  const clean=phone.replace(/\D/g,'').slice(-10);
+  try{
+    const r=await fetch(`https://2factor.in/API/V1/${TF_KEY}/SMS/${clean}/AUTOGEN`);
+    const d=await r.json();
+    if(d.Status==='Success'){
+      document.getElementById('kOTPWrap').style.display='block';
+      document.getElementById('kOTPBtn').textContent='Resend';
+      KYC_DATA.otpSession=d.Details;
+      toast('OTP sent!','success');
+    }else{toast('Failed to send OTP','error');}
+  }catch{toast('OTP service error','error');}
+}
+async function verifyKYCOTP(){
+  const otp=getOTPValue('kycOtpInputs');
+  if(otp.length<6){toast('Enter 6-digit OTP','error');return;}
+  try{
+    const r=await fetch(`https://2factor.in/API/V1/${TF_KEY}/SMS/VERIFY/${KYC_DATA.otpSession}/${otp}`);
+    const d=await r.json();
+    if(d.Status==='Success'){KYC_DATA.mobileVerified=true;toast('Mobile verified!','success');gotoKYC(1);}
+    else{document.getElementById('kOTPErr').textContent='Invalid OTP';toast('Invalid OTP','error');}
+  }catch{toast('Verification error','error');}
+}
+async function handleKYCFile(event,type){
+  const file=event.target.files[0];
+  if(!file)return;
+  if(type==='pan'){KYC_DATA.panFile=file;const img=document.getElementById('panPreview');img.style.display='block';img.src=URL.createObjectURL(file);}
+  if(type==='selfie'){KYC_DATA.selfieFile=file;const img=document.getElementById('selfiePreview');img.style.display='block';img.src=URL.createObjectURL(file);}
+}
+async function submitKYC(){
+  if(!CU){toast('Sign in first','error');return;}
+  if(!document.getElementById('kName').value){toast('Fill Basic Details first','error');gotoKYC(0);return;}
+  if(!document.getElementById('kPAN').value){toast('PAN number required','error');gotoKYC(1);return;}
+  toast('Uploading KYC documents…','info');
+  let panUrl='',selfieUrl='';
+  try{
+    if(KYC_DATA.panFile){
+      const ext=KYC_DATA.panFile.name.split('.').pop();
+      const {data}=await db.storage.from('kyc-documents').upload(`pan/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.panFile,{upsert:true});
+      panUrl=data?.path||'';
+    }
+    if(KYC_DATA.selfieFile){
+      const ext=KYC_DATA.selfieFile.name.split('.').pop();
+      const {data}=await db.storage.from('kyc-documents').upload(`selfie/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.selfieFile,{upsert:true});
+      selfieUrl=data?.path||'';
+    }
+    await db.from('kyc_submissions').upsert({
+      user_id:CU.id,
+      full_name:document.getElementById('kName').value,
+      date_of_birth:document.getElementById('kDOB').value||null,
+      mobile:document.getElementById('kPhone').value,
+      mobile_verified:KYC_DATA.mobileVerified||false,
+      pan_number:document.getElementById('kPAN').value.toUpperCase(),
+      pan_photo_url:panUrl,
+      aadhaar_number:document.getElementById('kAadhaar').value||null,
+      bank_account_number:document.getElementById('kAccNum').value,
+      bank_ifsc:document.getElementById('kIFSC').value.toUpperCase(),
+      bank_holder_name:document.getElementById('kBankHolder').value,
+      bank_name:document.getElementById('kBankName').value,
+      selfie_url:selfieUrl,
+      status:'pending',submitted_at:new Date().toISOString()
+    },{onConflict:'user_id'});
+    await db.from('users_profile').update({kyc_status:'submitted',kyc_submitted_at:new Date().toISOString()}).eq('id',CU.id);
+    UP.kyc_status='submitted';
+    document.getElementById('kycOvl').classList.remove('open');
+    toast('KYC submitted! Review within 24-48hrs.','success');
+    renderKYCSection();
+  }catch(e){toast('Submission error: '+e.message,'error');}
+}
+
+// ═══ BANK CHANGE OTP ═══════════════════════════════════════
+function initBankChange(){
+  if(!CU){toast('Sign in first','error');return;}
+  BANK_PENDING={
+    full_name:document.getElementById('editName').value.trim(),
+    phone:document.getElementById('editPhone').value.trim(),
+    upi:document.getElementById('editUPI').value.trim(),
+    account_holder_name:document.getElementById('editAccHolder').value.trim(),
+    bank_name:document.getElementById('editBankName').value.trim(),
+    account_number:document.getElementById('editAccNum').value.trim(),
+    ifsc_code:document.getElementById('editIFSC').value.trim(),
+  };
+  document.getElementById('bankPwd').value='';
+  document.getElementById('bankOTPSection').style.display='none';
+  document.getElementById('bankOtpErr').textContent='';
+  document.getElementById('bankOtpOvl').classList.add('open');
+}
+async function verifyPwdSendOTP(){
+  const pwd=document.getElementById('bankPwd').value;
+  if(!pwd){document.getElementById('bankOtpErr').textContent='Enter password';return;}
+  const btn=document.getElementById('sendBankOTPBtn');
+  btn.disabled=true;btn.textContent='Verifying…';
+  const {error}=await db.auth.signInWithPassword({email:CU.email,password:pwd});
+  btn.disabled=false;btn.textContent='Verify & Send OTP';
+  if(error){document.getElementById('bankOtpErr').textContent='Wrong password';return;}
+  const phone=(UP?.phone||'').replace(/\D/g,'').slice(-10);
+  if(!phone){document.getElementById('bankOtpErr').textContent='No phone on file. Update profile first.';return;}
+  try{
+    const r=await fetch(`https://2factor.in/API/V1/${TF_KEY}/SMS/${phone}/AUTOGEN`);
+    const d=await r.json();
+    if(d.Status==='Success'){
+      BANK_PENDING.otpSid=d.Details;
+      document.getElementById('bankOTPSection').style.display='block';
+      toast('OTP sent to your phone','success');
+    }else throw new Error('OTP failed');
+  }catch{document.getElementById('bankOtpErr').textContent='Failed to send OTP';}
+}
+async function confirmBankChange(){
+  const otp=getOTPValue('bankOtpInputs');
+  if(otp.length<6){document.getElementById('bankOtpErr').textContent='Enter OTP';return;}
+  try{
+    const r=await fetch(`https://2factor.in/API/V1/${TF_KEY}/SMS/VERIFY/${BANK_PENDING.otpSid}/${otp}`);
+    const d=await r.json();
+    if(d.Status!=='Success'){document.getElementById('bankOtpErr').textContent='Invalid OTP';return;}
+    const {full_name,phone,upi,account_holder_name,bank_name,account_number,ifsc_code}=BANK_PENDING;
+    await db.from('users_profile').update({full_name,phone,upi,account_holder_name,bank_name,account_number,ifsc_code}).eq('id',CU.id);
+    UP={...UP,...BANK_PENDING};
+    document.getElementById('bankOtpOvl').classList.remove('open');
+    toast('Profile & bank details saved!','success');
+    renderProfile();
+  }catch{document.getElementById('bankOtpErr').textContent='Verification failed';}
+}
+
+// ═══ SUBSCRIPTION PLANS ════════════════════════════════════
+async function loadPlans(){
+  try{const {data}=await db.from('subscription_plans').select('*').eq('active',true);PLANS=data||[];}
+  catch{PLANS=[{id:1,name:'RTO Basic',slug:'rto_basic',price:99,description:'High RTO pincode detection',features:['High RTO pincode detection','Monthly reports']},{id:2,name:'RTO + Call',slug:'rto_call',price:1499,description:'Call confirmation + RTO detection',features:['RTO detection','300 call confirmations/month','Call recording','Priority support']}];}
+}
+function loadSubPlansUI(){
+  const c=document.getElementById('subPlansUI');
+  if(!c)return;
+  const curPlan=UP?.subscription_plan||'none';
+  c.innerHTML=PLANS.map(p=>`
+    <div class="sub-card ${curPlan===p.slug?'act':''}">
+      ${p.slug==='rto_call'?'<div class="sub-badge">POPULAR</div>':''}
+      <div class="sc-name">${p.name}</div>
+      <div class="sc-price">₹${p.price}</div>
+      <div class="sc-period">/month · Auto-renewed</div>
+      <ul class="sc-feat">${(p.features||[]).map(f=>`<li>${f}</li>`).join('')}</ul>
+      ${curPlan===p.slug
+        ?'<button class="btn btn-g btn-w" style="margin-top:14px;font-size:11px" onclick="cancelSub()">Cancel Plan</button>'
+        :`<button class="btn btn-a btn-w" style="margin-top:14px" onclick="subscribePlan(${p.id},'${p.slug}',${p.price})">Subscribe →</button>`}
+    </div>`).join('');
+}
+async function subscribePlan(planId,slug,price){
+  if(!CU){openAuth();return;}
+  if(UP?.kyc_status!=='approved'){toast('Complete KYC first to subscribe.','error');openKYC();return;}
+  const opts={
+    key:RZP_KEY,
+    amount:price*100,currency:'INR',
+    name:'Dropship Pro',description:`${slug==='rto_call'?'RTO + Call':'RTO Basic'} Subscription`,
+    handler:async function(resp){
+      await db.from('user_subscriptions').insert({user_id:CU.id,plan_id:planId,razorpay_payment_id:resp.razorpay_payment_id,status:'active',start_date:new Date().toISOString(),next_billing_date:new Date(Date.now()+30*864e5).toISOString()});
+      await db.from('users_profile').update({subscription_plan:slug,subscription_expiry:new Date(Date.now()+30*864e5).toISOString()}).eq('id',CU.id);
+      UP.subscription_plan=slug;
+      toast('Subscription activated!','success');
+      loadSubPlansUI();renderProfile();
+    },
+    prefill:{name:UP?.full_name||'',email:CU.email,contact:UP?.phone||''},
+    theme:{color:'#f5a623'}
+  };
+  new Razorpay(opts).open();
+}
+async function cancelSub(){
+  if(!confirm('Cancel your subscription?'))return;
+  await db.from('user_subscriptions').update({status:'cancelled',cancelled_at:new Date().toISOString()}).eq('user_id',CU.id).eq('status','active');
+  await db.from('users_profile').update({subscription_plan:'none',subscription_expiry:null}).eq('id',CU.id);
+  UP.subscription_plan='none';
+  toast('Subscription cancelled.','info');
+  loadSubPlansUI();renderProfile();
+}
+
+// ═══ ORDER FLOW ════════════════════════════════════════════
+function openOrder(pid){
+  if(!CU){openAuth();toast('Sign in to order','info');return;}
+  if(UP?.kyc_status!=='approved'){
+    toast('Complete KYC first to place orders.','error');
+    openKYC();return;
+  }
+  CUR_PROD=PRODS.find(p=>p.id===pid);
+  if(!CUR_PROD)return;
+  OS={step:1,mode:'sheet',file:null,parsed:null,sellerPrice:0,codCount:0,prepaidCount:0,callConf:false,callRec:false};
+  const t=CUR_PROD.name;
+  document.getElementById('orderMTtl').textContent=t.length>32?t.slice(0,32)+'…':t;
   renderOrderStep();
-  document.getElementById('orderOverlay').classList.add('open');
+  document.getElementById('orderOvl').classList.add('open');
   document.body.style.overflow='hidden';
 }
+function closeOrder(){document.getElementById('orderOvl').classList.remove('open');document.body.style.overflow='';}
+document.getElementById('orderOvl').addEventListener('click',e=>{if(e.target===e.currentTarget)closeOrder();});
+document.getElementById('authOvl').addEventListener('click',e=>{if(e.target===e.currentTarget)closeAuth();});
 
-function closeOrderModal(){
-  document.getElementById('orderOverlay').classList.remove('open');
-  document.body.style.overflow='';
-}
-
-document.getElementById('orderOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeOrderModal(); });
-document.getElementById('authOverlay').addEventListener('click',e=>{ if(e.target===e.currentTarget) closeAuth(); });
-
-function dots(a){ return `<div class="step-dots">${[1,2,3,4].map(i=>`<div class="sd ${i<a?'done':i===a?'active':''}"></div>`).join('')}</div>`; }
+function dots(a){return`<div class="sdots">${[1,2,3,4,5].map(i=>`<div class="sd ${i<a?'dn':i===a?'act':''}"></div>`).join('')}</div>`;}
 
 function renderOrderStep(){
-  const body=document.getElementById('orderModalBody');
-  const s=orderState.step;
-
+  const body=document.getElementById('orderMBody');
+  const s=OS.step;
   if(s===1){
     body.innerHTML=`
       ${dots(1)}
-      <div class="step-tag">Step 1 of 4 — Upload Sheet</div>
-      <div class="step-q">Upload your order sheet for this product</div>
-      <div class="info-box">📊 AI will scan your sheet, match rows for <strong>${currentProduct.name}</strong>, and calculate total quantity automatically.</div>
-      <div class="upload-zone" id="uz">
-        <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-        <p>Drag & drop or <span>browse files</span></p>
-        <div class="uz-ft">XLSX • XLS • CSV supported</div>
+      <div class="stag">Step 1 of 5 — Order Method</div>
+      <div class="sq">How do you want to place this order?</div>
+      <div class="call-opt ${OS.mode==='sheet'?'sel':''}" onclick="OS.mode='sheet';renderOrderStep()">
+        <div class="co-ttl">📊 Upload Order Sheet</div>
+        <div class="co-sub">AI reads your XLSX/CSV file and extracts quantities automatically</div>
       </div>
-      <div id="aiStatus" style="margin-top:12px"></div>`;
-    setupDrop();
+      <div class="call-opt ${OS.mode==='manual'?'sel':''}" onclick="OS.mode='manual';renderOrderStep()">
+        <div class="co-ttl">✏️ Enter Manually</div>
+        <div class="co-sub">Enter quantity and customer details manually — no sheet needed</div>
+      </div>
+      <button class="btn btn-a btn-w" onclick="OS.step=2;renderOrderStep()" style="margin-top:4px">Continue →</button>`;
   }
-
   else if(s===2){
-    const ai=orderState.parsed;
-    body.innerHTML=`
-      ${dots(2)}
-      <div class="step-tag">Step 2 of 4 — Selling Price</div>
-      <div class="step-q">What price did you tell your customers?</div>
-      <div class="parse-box">
-        <div class="pf">✅ AI found <strong>${ai.qty} unit(s)</strong> of this product in sheet</div>
-        <div class="pi">Sheet rows: ${ai.totalRows} &nbsp;·&nbsp; Matched: ${ai.matchedRows} &nbsp;·&nbsp; MRP: ₹${currentProduct.price}</div>
-        ${ai.note?`<div class="pi" style="color:var(--amber);margin-top:5px">💡 ${ai.note}</div>`:''}
-      </div>
-      <div class="form-group">
-        <label class="form-label">Your Selling Price (per unit, ≥ MRP)</label>
-        <input class="form-input" type="number" id="spInput" placeholder="₹0" min="${currentProduct.price}" style="font-size:20px;font-family:'Bebas Neue';letter-spacing:1px" oninput="calcProfit(this.value)">
-      </div>
-      <div class="profit-preview" id="profitShow"></div>
-      <button class="btn-full" onclick="goStep3()">Continue →</button>
-      <button class="btn-ghost" onclick="orderState.step=1;renderOrderStep()">← Back</button>`;
+    if(OS.mode==='sheet'){
+      body.innerHTML=`
+        ${dots(2)}
+        <div class="stag">Step 2 of 5 — Upload Sheet</div>
+        <div class="sq">Upload your order sheet</div>
+        <div class="ib">📊 AI will scan for <strong>${CUR_PROD.name}</strong> rows and extract quantities.</div>
+        <div class="uz" id="uz">
+          <input type="file" accept=".xlsx,.xls,.csv" onchange="handleFile(event)">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <p>Drag & drop or <span>browse</span></p>
+          <div class="ft">XLSX • XLS • CSV</div>
+        </div>
+        <div id="aiStatus" style="margin-top:10px"></div>
+        <button class="btn btn-g btn-w" onclick="OS.step=1;renderOrderStep()" style="margin-top:10px">← Back</button>`;
+      setupDrop();
+    }else{
+      body.innerHTML=`
+        ${dots(2)}
+        <div class="stag">Step 2 of 5 — Manual Order</div>
+        <div class="sq">Enter order details</div>
+        <div class="fg"><label class="lbl">Number of Units *</label><input class="inp" type="number" id="manQty" placeholder="0" min="1"></div>
+        <div class="fg"><label class="lbl">Customer Name</label><input class="inp" id="manCName" placeholder="Customer Name"></div>
+        <div class="fg"><label class="lbl">Customer Phone</label><input class="inp" id="manCPhone" placeholder="+91 XXXXX XXXXX"></div>
+        <div class="fg"><label class="lbl">Delivery Address</label><textarea class="inp" id="manAddr" placeholder="Full delivery address…" style="min-height:60px"></textarea></div>
+        <button class="btn btn-a btn-w" onclick="proceedManual()" style="margin-top:4px">Continue →</button>
+        <button class="btn btn-g btn-w" onclick="OS.step=1;renderOrderStep()" style="margin-top:8px">← Back</button>`;
+    }
   }
-
   else if(s===3){
-    const qty=orderState.parsed.qty;
+    const ai=OS.parsed;
     body.innerHTML=`
       ${dots(3)}
-      <div class="step-tag">Step 3 of 4 — Payment Split</div>
-      <div class="step-q"><strong style="color:var(--amber)">${qty} units</strong> found — split COD & Prepaid</div>
-      <div class="info-box">
-        <strong>COD:</strong> You pay ₹${currentProduct.cod_charge||0}/unit now (non-refundable on return).<br>
-        <strong>Prepaid:</strong> You pay full ₹${currentProduct.price}/unit now.
+      <div class="stag">Step 3 of 5 — Selling Price</div>
+      <div class="sq">Your selling price per unit?</div>
+      <div class="pb2">
+        <div class="pf">✅ ${ai.qty} unit(s) found ${OS.mode==='manual'?'(manual entry)':'in sheet'}</div>
+        <div class="pi2">MRP: ₹${CUR_PROD.price} &nbsp;·&nbsp; Matched rows: ${ai.matchedRows||ai.qty}</div>
+        ${ai.note?`<div class="pi2" style="color:var(--amb);margin-top:4px">💡 ${ai.note}</div>`:''}
       </div>
-      <div class="split-grid">
-        <div class="form-group"><label class="form-label">COD Units</label><input class="form-input" type="number" id="codIn" placeholder="0" min="0" max="${qty}" oninput="calcSplit()"></div>
-        <div class="form-group"><label class="form-label">Prepaid Units</label><input class="form-input" type="number" id="preIn" placeholder="0" min="0" max="${qty}" oninput="calcSplit()"></div>
+      <div class="fg"><label class="lbl">Your Selling Price (≥ MRP ₹${CUR_PROD.price})</label>
+        <input class="inp" type="number" id="spIn" placeholder="₹0" min="${CUR_PROD.price}" style="font-size:18px;font-family:'Bebas Neue'" oninput="calcProfit(this.value)">
       </div>
-      <div id="splitWarn" style="font-size:12px;min-height:18px;margin-bottom:8px"></div>
-      <div class="summary-box" id="paySummary" style="display:none">
-        <div class="s-row"><span class="sl">COD Charge (${currentProduct.cod_charge||0} × units)</span><span class="sv" id="sCOD">₹0</span></div>
-        <div class="s-row"><span class="sl">Prepaid Amount (${currentProduct.price} × units)</span><span class="sv" id="sPre">₹0</span></div>
-        <div class="s-row hl"><span class="sl">Total Payable Now</span><span class="sv" id="sTotal">₹0</span></div>
-      </div>
-      <button class="btn-full" id="s3btn" onclick="goStep4()" disabled>Review & Pay →</button>
-      <button class="btn-ghost" onclick="orderState.step=2;renderOrderStep()">← Back</button>`;
+      <div id="profitShow" style="font-size:12px;min-height:18px;margin-bottom:12px"></div>
+      <button class="btn btn-a btn-w" onclick="goStep4()">Continue →</button>
+      <button class="btn btn-g btn-w" onclick="OS.step=2;renderOrderStep()" style="margin-top:8px">← Back</button>`;
   }
-
   else if(s===4){
-    const cod=orderState.codCount, pre=orderState.prepaidCount;
-    const codAmt=cod*(currentProduct.cod_charge||0), preAmt=pre*currentProduct.price;
-    const total=codAmt+preAmt;
-    const estProfit=(orderState.sellerPrice-currentProduct.price)*(cod+pre);
+    const qty=OS.parsed.qty;
     body.innerHTML=`
       ${dots(4)}
-      <div class="step-tag">Step 4 of 4 — Confirm & Pay</div>
-      <div class="step-q">Review your order</div>
-      <div class="summary-box">
-        <div class="s-row"><span class="sl">Product</span><span class="sv" style="font-size:12px;max-width:190px;text-align:right">${currentProduct.name}</span></div>
-        <div class="s-row"><span class="sl">Your Selling Price</span><span class="sv" style="color:var(--green)">₹${orderState.sellerPrice}/unit</span></div>
-        <div class="s-row"><span class="sl">Estimated Profit</span><span class="sv" style="color:var(--green)">₹${Math.max(0,estProfit).toLocaleString()}</span></div>
-        <div class="s-row"><span class="sl">COD (${cod} × ₹${currentProduct.cod_charge||0})</span><span class="sv" style="color:var(--orange)">₹${codAmt.toLocaleString()}</span></div>
-        <div class="s-row"><span class="sl">Prepaid (${pre} × ₹${currentProduct.price})</span><span class="sv" style="color:var(--teal)">₹${preAmt.toLocaleString()}</span></div>
-        <div class="s-row hl"><span class="sl">You Pay Now</span><span class="sv">₹${total.toLocaleString()}</span></div>
+      <div class="stag">Step 4 of 5 — Payment Split</div>
+      <div class="sq"><strong style="color:var(--amb)">${qty} units</strong> — split COD & Prepaid</div>
+      <div class="ib"><strong>COD:</strong> Pay ₹${CUR_PROD.cod_charge||0}/unit now (non-refundable).<br><strong>Prepaid:</strong> Pay ₹${CUR_PROD.price}/unit now.</div>
+      <div class="sg2">
+        <div class="fg"><label class="lbl">COD Units</label><input class="inp" type="number" id="codIn" placeholder="0" min="0" max="${qty}" oninput="calcSplit()"></div>
+        <div class="fg"><label class="lbl">Prepaid Units</label><input class="inp" type="number" id="preIn" placeholder="0" min="0" max="${qty}" oninput="calcSplit()"></div>
       </div>
-      <div class="policy-grid2">
-        <div class="pi2"><div class="em">📹</div><div class="pt">Returns</div><div class="pd">4-day window. Unboxing video required.</div></div>
-        <div class="pi2"><div class="em">🚫</div><div class="pt">COD Charge</div><div class="pd">Non-refundable on all orders.</div></div>
-        <div class="pi2"><div class="em">🔒</div><div class="pt">Secure Pay</div><div class="pd">Razorpay encrypted gateway.</div></div>
-        <div class="pi2"><div class="em">📦</div><div class="pt">Dispatch</div><div class="pd">After payment confirmation.</div></div>
+      <div id="splitWarn" style="font-size:11px;min-height:16px;margin-bottom:8px"></div>
+      <div class="sb" id="paySummary" style="display:none">
+        <div class="sr2"><span class="sl">COD (×₹${CUR_PROD.cod_charge||0})</span><span class="sv" id="sCOD">₹0</span></div>
+        <div class="sr2"><span class="sl">Prepaid (×₹${CUR_PROD.price})</span><span class="sv" id="sPre">₹0</span></div>
+        <div class="sr2 hl"><span class="sl">Subtotal</span><span class="sv" id="sTotal">₹0</span></div>
       </div>
-      <button class="btn-full" id="payBtn" onclick="doPayment(${total})">
-        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+      <!-- Call Confirmation Option -->
+      <div id="callOptWrap" style="display:none">
+        <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--amb)">📞 Call Confirmation (Optional)</div>
+        <div class="call-opt ${OS.callConf===false?'sel':''}" onclick="OS.callConf=false;OS.callRec=false;updateCallFee()">
+          <div class="co-ttl">No Call Confirmation</div>
+          <div class="co-sub">Proceed without call verification</div>
+          <div class="co-price">₹0</div>
+        </div>
+        <div class="call-opt ${OS.callConf===true&&!OS.callRec?'sel':''}" onclick="OS.callConf=true;OS.callRec=false;updateCallFee()">
+          <div class="co-ttl">Call Confirmation Only</div>
+          <div class="co-sub">We call each customer to confirm order</div>
+          <div class="co-price">₹5/order</div>
+        </div>
+        <div class="call-opt ${OS.callConf===true&&OS.callRec?'sel':''}" onclick="OS.callConf=true;OS.callRec=true;updateCallFee()">
+          <div class="co-ttl">Call Confirmation + Recording</div>
+          <div class="co-sub">Call confirmation with recorded proof</div>
+          <div class="co-price">₹7/order</div>
+        </div>
+        <div id="callFeeInfo" style="font-size:11px;color:var(--sub);margin-bottom:8px"></div>
+      </div>
+      <button class="btn btn-a btn-w" id="s4btn" onclick="goStep5()" disabled>Review & Pay →</button>
+      <button class="btn btn-g btn-w" onclick="OS.step=3;renderOrderStep()" style="margin-top:8px">← Back</button>`;
+  }
+  else if(s===5){
+    const cod=OS.codCount,pre=OS.prepaidCount;
+    const codAmt=cod*(CUR_PROD.cod_charge||0),preAmt=pre*CUR_PROD.price;
+    const callFee=OS.callConf?((OS.callRec?7:5)*(cod+pre)):0;
+    const total=codAmt+preAmt+callFee;
+    const estProfit=(OS.sellerPrice-CUR_PROD.price)*(cod+pre);
+    body.innerHTML=`
+      ${dots(5)}
+      <div class="stag">Step 5 of 5 — Confirm & Pay</div>
+      <div class="sq">Review your order</div>
+      <div class="sb">
+        <div class="sr2"><span class="sl">Product</span><span class="sv" style="font-size:11px;max-width:180px;text-align:right">${CUR_PROD.name}</span></div>
+        <div class="sr2"><span class="sl">Selling Price</span><span class="sv" style="color:var(--grn)">₹${OS.sellerPrice}/unit</span></div>
+        <div class="sr2"><span class="sl">Est. Profit</span><span class="sv" style="color:var(--grn)">₹${Math.max(0,estProfit).toLocaleString()}</span></div>
+        <div class="sr2"><span class="sl">COD (${cod}×₹${CUR_PROD.cod_charge||0})</span><span class="sv" style="color:var(--ora)">₹${codAmt.toLocaleString()}</span></div>
+        <div class="sr2"><span class="sl">Prepaid (${pre}×₹${CUR_PROD.price})</span><span class="sv" style="color:var(--tel)">₹${preAmt.toLocaleString()}</span></div>
+        ${callFee>0?`<div class="sr2"><span class="sl">Call Conf.${OS.callRec?' + Rec':''} (${cod+pre}×₹${OS.callRec?7:5})</span><span class="sv" style="color:var(--blu)">₹${callFee}</span></div>`:''}
+        <div class="sr2 hl"><span class="sl">You Pay Now</span><span class="sv">₹${total.toLocaleString()}</span></div>
+      </div>
+      <div class="pg2">
+        <div class="pi3"><div class="em">📹</div><div class="pt">Returns</div><div class="pd">4-day window. Unboxing video required.</div></div>
+        <div class="pi3"><div class="em">🚫</div><div class="pt">COD</div><div class="pd">Non-refundable charge.</div></div>
+        <div class="pi3"><div class="em">🔒</div><div class="pt">Secure</div><div class="pd">Razorpay encrypted.</div></div>
+        <div class="pi3"><div class="em">📦</div><div class="pt">Dispatch</div><div class="pd">After payment confirmation.</div></div>
+      </div>
+      <button class="btn btn-a btn-w" onclick="doPayment(${total})">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
         Pay ₹${total.toLocaleString()} via Razorpay
       </button>
-      <button class="btn-ghost" onclick="orderState.step=3;renderOrderStep()">← Back</button>`;
+      <button class="btn btn-g btn-w" onclick="OS.step=4;renderOrderStep()" style="margin-top:8px">← Back</button>`;
   }
 }
 
-// ═══ FILE / AI PARSING ════════════════════════════
 function setupDrop(){
-  const uz=document.getElementById('uz');
-  if(!uz) return;
-  uz.addEventListener('dragover',e=>{ e.preventDefault(); uz.classList.add('drag'); });
+  const uz=document.getElementById('uz');if(!uz)return;
+  uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
   uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
-  uz.addEventListener('drop',e=>{ e.preventDefault(); uz.classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) processFile(f); });
+  uz.addEventListener('drop',e=>{e.preventDefault();uz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processFile(f);});
 }
-
-function handleFile(e){ const f=e.target.files[0]; if(f) processFile(f); }
-
+function handleFile(e){const f=e.target.files[0];if(f)processFile(f);}
 function processFile(file){
-  if(!file.name.match(/\.(xlsx|xls|csv)$/i)){ showToast('Use XLSX, XLS or CSV files only.','error'); return; }
-  document.getElementById('aiStatus').innerHTML=`<div class="ai-loading"><div class="ai-spin"></div><span>AI is reading your sheet…</span></div>`;
+  if(!file.name.match(/\.(xlsx|xls|csv)$/i)){toast('Use XLSX, XLS or CSV','error');return;}
+  document.getElementById('aiStatus').innerHTML='<div class="ail"><div class="asp"></div><span>AI reading sheet…</span></div>';
   const reader=new FileReader();
   reader.onload=e=>{
     try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{ type:'array' });
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{ header:1, defval:'' });
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
       aiParse(rows);
-    }catch{ showToast('Cannot read file. Check format.','error'); document.getElementById('aiStatus').innerHTML=''; }
+    }catch{toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}
   };
   reader.readAsArrayBuffer(file);
 }
-
 function aiParse(rows){
-  const pName=currentProduct.name.toLowerCase();
-  const keywords=pName.split(' ').filter(w=>w.length>2);
-  let totalRows=0, matchedRows=0, qty=0, note='';
-  let headerRow=-1, qtyCol=-1;
-
-  // Find header
+  const kws=CUR_PROD.name.toLowerCase().split(' ').filter(w=>w.length>2);
+  let totalRows=0,matchedRows=0,qty=0,note='',hdr=-1,qtyCol=-1;
   for(let i=0;i<Math.min(rows.length,6);i++){
     const r=rows[i].map(c=>String(c).toLowerCase().trim());
-    if(r.some(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pieces'))){
-      headerRow=i;
-      qtyCol=r.findIndex(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pieces'));
-      break;
+    if(r.some(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pcs'))){
+      hdr=i;qtyCol=r.findIndex(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pcs'));break;
     }
   }
-
-  const dataStart=headerRow>=0?headerRow+1:1;
-  for(let i=dataStart;i<rows.length;i++){
-    const row=rows[i];
-    const rowStr=row.map(c=>String(c)).join(' ');
-    if(!rowStr.trim()) continue;
-    totalRows++;
-    const rowLow=rowStr.toLowerCase();
-    const score=keywords.filter(kw=>rowLow.includes(kw)).length;
-    if(score/keywords.length>=0.35){
+  for(let i=hdr>=0?hdr+1:1;i<rows.length;i++){
+    const row=rows[i];const rs=row.map(c=>String(c)).join(' ');
+    if(!rs.trim())continue;totalRows++;
+    const sc=kws.filter(kw=>rs.toLowerCase().includes(kw)).length;
+    if(sc/kws.length>=0.35){
       matchedRows++;
-      // Try qty column
-      if(qtyCol>=0&&row[qtyCol]!==''){
-        const n=parseInt(String(row[qtyCol]).replace(/[^0-9]/g,''));
-        if(!isNaN(n)&&n>0){ qty+=n; continue; }
-      }
-      // Scan row for qty number
+      if(qtyCol>=0&&row[qtyCol]!==''){const n=parseInt(String(row[qtyCol]).replace(/\D/g,''));if(!isNaN(n)&&n>0){qty+=n;continue;}}
       let found=false;
-      for(const cell of row){
-        const cs=String(cell).trim();
-        const n=parseInt(cs.replace(/[^0-9]/g,''));
-        if(!isNaN(n)&&n>0&&n<5000&&cs.length<=6){ qty+=n; found=true; break; }
-      }
-      if(!found) qty++;
+      for(const c of row){const cs=String(c).trim();const n=parseInt(cs.replace(/\D/g,''));if(!isNaN(n)&&n>0&&n<5000&&cs.length<=6){qty+=n;found=true;break;}}
+      if(!found)qty++;
     }
   }
-
-  // Fallback: no product match — treat as single-product sheet
   if(matchedRows===0&&totalRows>0){
-    note='Product name not found in sheet. Counted all order rows automatically.';
-    matchedRows=totalRows;
-    if(qtyCol>=0){
-      for(let i=dataStart;i<rows.length;i++){
-        if(!rows[i].join('').trim()) continue;
-        const n=parseInt(String(rows[i][qtyCol]||'').replace(/[^0-9]/g,''));
-        if(!isNaN(n)&&n>0) qty+=n;
-      }
-    }
-    if(qty===0) qty=matchedRows;
+    note='Product name not matched. Counted all order rows.';matchedRows=totalRows;
+    if(qtyCol>=0){for(let i=hdr>=0?hdr+1:1;i<rows.length;i++){if(!rows[i].join('').trim())continue;const n=parseInt(String(rows[i][qtyCol]||'').replace(/\D/g,''));if(!isNaN(n)&&n>0)qty+=n;}}
+    if(qty===0)qty=matchedRows;
   }
-
-  orderState.parsed={ qty:Math.max(qty,1), totalRows, matchedRows, note };
-  orderState.step=2;
-  renderOrderStep();
-  showToast(`AI found ${orderState.parsed.qty} unit(s)!`,'success');
+  OS.parsed={qty:Math.max(qty,1),totalRows,matchedRows,note};
+  OS.step=3;renderOrderStep();
+  toast(`AI found ${OS.parsed.qty} unit(s)!`,'success');
 }
-
-function calcProfit(val){
-  const sp=parseFloat(val)||0;
-  const profit=sp-currentProduct.price;
-  const el=document.getElementById('profitShow');
-  if(!el) return;
-  if(sp>0&&profit>0) el.innerHTML=`<span style="color:var(--green)">💰 Profit: ₹${profit.toLocaleString()}/unit &nbsp;·&nbsp; Total est.: ₹${(profit*orderState.parsed.qty).toLocaleString()}</span>`;
-  else if(sp>0) el.innerHTML=`<span style="color:var(--red)">⚠️ Must be ≥ MRP ₹${currentProduct.price}</span>`;
+function proceedManual(){
+  const qty=parseInt(document.getElementById('manQty').value)||0;
+  if(qty<1){toast('Enter at least 1 unit','error');return;}
+  OS.parsed={qty,matchedRows:qty,note:'Manual entry'};
+  OS.manualData={
+    customerName:document.getElementById('manCName').value,
+    customerPhone:document.getElementById('manCPhone').value,
+    address:document.getElementById('manAddr').value,
+  };
+  OS.step=3;renderOrderStep();
+}
+function calcProfit(v){
+  const sp=parseFloat(v)||0;const p=sp-CUR_PROD.price;const el=document.getElementById('profitShow');
+  if(!el)return;
+  if(sp>0&&p>0)el.innerHTML=`<span style="color:var(--grn)">💰 Profit: ₹${p.toLocaleString()}/unit · Total: ₹${(p*OS.parsed.qty).toLocaleString()}</span>`;
+  else if(sp>0)el.innerHTML=`<span style="color:var(--red)">⚠️ Must be ≥ MRP ₹${CUR_PROD.price}</span>`;
   else el.innerHTML='';
 }
-
-function goStep3(){
-  const sp=parseFloat(document.getElementById('spInput').value)||0;
-  if(sp<currentProduct.price){ showToast('Selling price must be ≥ MRP.','error'); return; }
-  orderState.sellerPrice=sp; orderState.step=3; renderOrderStep();
+function goStep4(){
+  const sp=parseFloat(document.getElementById('spIn').value)||0;
+  if(sp<CUR_PROD.price){toast('Selling price must be ≥ MRP','error');return;}
+  OS.sellerPrice=sp;OS.step=4;renderOrderStep();
 }
-
 function calcSplit(){
   const cod=parseInt(document.getElementById('codIn').value)||0;
   const pre=parseInt(document.getElementById('preIn').value)||0;
-  const max=orderState.parsed.qty;
-  const warn=document.getElementById('splitWarn'), sum=document.getElementById('paySummary'), btn=document.getElementById('s3btn');
-  if(cod+pre>max){ warn.innerHTML=`<span style="color:var(--red)">⚠️ Total exceeds ${max} units</span>`; btn.disabled=true; sum.style.display='none'; return; }
-  if(cod+pre===0){ warn.innerHTML=''; btn.disabled=true; sum.style.display='none'; return; }
-  warn.innerHTML=cod+pre<max?`<span style="color:var(--amber)">⚠️ ${max-cod-pre} unit(s) unaccounted</span>`:`<span style="color:var(--green)">✅ All ${max} units accounted</span>`;
-  const ca=cod*(currentProduct.cod_charge||0), pa=pre*currentProduct.price;
+  const max=OS.parsed.qty;
+  const warn=document.getElementById('splitWarn'),sum=document.getElementById('paySummary'),btn=document.getElementById('s4btn');
+  const callWrap=document.getElementById('callOptWrap');
+  if(cod+pre>max){warn.innerHTML=`<span style="color:var(--red)">⚠️ Exceeds ${max}</span>`;btn.disabled=true;sum.style.display='none';if(callWrap)callWrap.style.display='none';return;}
+  if(cod+pre===0){warn.innerHTML='';btn.disabled=true;sum.style.display='none';if(callWrap)callWrap.style.display='none';return;}
+  warn.innerHTML=cod+pre<max?`<span style="color:var(--amb)">⚠️ ${max-cod-pre} unaccounted</span>`:`<span style="color:var(--grn)">✅ All ${max} accounted</span>`;
+  const ca=cod*(CUR_PROD.cod_charge||0),pa=pre*CUR_PROD.price;
   document.getElementById('sCOD').textContent='₹'+ca.toLocaleString();
   document.getElementById('sPre').textContent='₹'+pa.toLocaleString();
   document.getElementById('sTotal').textContent='₹'+(ca+pa).toLocaleString();
-  sum.style.display='block'; btn.disabled=false;
+  sum.style.display='block';btn.disabled=false;
+  if(callWrap){callWrap.style.display='block';updateCallFee();}
 }
-
-function goStep4(){
-  orderState.codCount=parseInt(document.getElementById('codIn').value)||0;
-  orderState.prepaidCount=parseInt(document.getElementById('preIn').value)||0;
-  orderState.step=4; renderOrderStep();
+function updateCallFee(){
+  const info=document.getElementById('callFeeInfo');if(!info)return;
+  const tot=(OS.codCount||parseInt(document.getElementById('codIn')?.value)||0)+(OS.prepaidCount||parseInt(document.getElementById('preIn')?.value)||0);
+  if(OS.callConf)info.textContent=`Call fee: ₹${OS.callRec?7:5} × ${tot} = ₹${(OS.callRec?7:5)*tot}`;
+  else info.textContent='';
 }
-
-// ═══ RAZORPAY ═════════════════════════════════════
+function goStep5(){
+  OS.codCount=parseInt(document.getElementById('codIn').value)||0;
+  OS.prepaidCount=parseInt(document.getElementById('preIn').value)||0;
+  OS.step=5;renderOrderStep();
+}
 async function doPayment(amtRupees){
-  if(amtRupees<=0){ showToast('Nothing to pay!','info'); return; }
-  const btn=document.getElementById('payBtn');
-  btn.disabled=true; btn.textContent='Opening payment…';
-  let rzpOrderId=null;
-  try{
-    const { data } = await db.functions.invoke('create-razorpay-order',{ body:{ amount:amtRupees*100, currency:'INR', receipt:`dsp_${Date.now()}` } });
-    rzpOrderId=data?.id;
-  }catch(e){ console.log('Edge fn:',e.message); }
+  if(amtRupees<=0){toast('Nothing to pay!','info');return;}
+  const btn=document.querySelector('#orderMBody .btn-a');
+  if(btn){btn.disabled=true;btn.textContent='Opening…';}
+  let rzpOid=null;
+  try{const {data}=await db.functions.invoke('create-razorpay-order',{body:{amount:amtRupees*100,currency:'INR',receipt:`dsp_${Date.now()}`}});rzpOid=data?.id;}catch{}
   const opts={
-    key:RZP_KEY, amount:amtRupees*100, currency:'INR',
-    name:'Dropship Pro', description:currentProduct.name,
-    ...(rzpOrderId&&{ order_id:rzpOrderId }),
-    prefill:{ name:userProfile?.full_name||'', email:currentUser.email, contact:userProfile?.phone||'' },
-    theme:{ color:'#f5a623' },
+    key:RZP_KEY,amount:amtRupees*100,currency:'INR',
+    name:'Dropship Pro',description:CUR_PROD.name,
+    ...(rzpOid&&{order_id:rzpOid}),
+    prefill:{name:UP?.full_name||'',email:CU.email,contact:UP?.phone||''},
+    theme:{color:'#f5a623'},
     handler:async function(resp){
       await saveOrder(resp,amtRupees);
-      closeOrderModal();
-      await loadMyOrders();
-      renderDashboard(); renderProfilePage();
-      showToast('Payment successful! Order placed.','success');
-      showPage('orders');
+      closeOrder();await loadMyOrders();renderDash();renderProfile();
+      toast('Payment successful! Order placed.','success');showPg('orders');
     },
-    modal:{ ondismiss:()=>{ if(btn){ btn.disabled=false; btn.innerHTML='<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pay ₹'+amtRupees.toLocaleString()+' via Razorpay'; } showToast('Payment cancelled.','info'); } }
+    modal:{ondismiss:()=>{if(btn){btn.disabled=false;btn.textContent=`Pay ₹${amtRupees.toLocaleString()} via Razorpay`;}toast('Payment cancelled.','info');}}
   };
   const rzp=new Razorpay(opts);
-  rzp.on('payment.failed',()=>{ showToast('Payment failed. Try again.','error'); btn.disabled=false; btn.textContent='Pay ₹'+amtRupees.toLocaleString()+' via Razorpay'; });
+  rzp.on('payment.failed',()=>{toast('Payment failed','error');if(btn){btn.disabled=false;}});
   rzp.open();
 }
-
 async function saveOrder(resp,totalPaid){
   try{
+    const callFee=OS.callConf?((OS.callRec?7:5)*(OS.codCount+OS.prepaidCount)):0;
     await db.from('orders').insert({
-      product_id:currentProduct.id, product_name:currentProduct.name,
-      product_price:currentProduct.price, seller_price:orderState.sellerPrice,
-      cod_count:orderState.codCount, prepaid_count:orderState.prepaidCount,
-      total_paid:totalPaid, payment_id:resp?.razorpay_payment_id||'manual',
-      razorpay_order_id:resp?.razorpay_order_id||null,
-      status:'paid', user_id:currentUser.id, created_at:new Date().toISOString()
+      product_id:CUR_PROD.id,product_name:CUR_PROD.name,product_price:CUR_PROD.price,
+      seller_price:OS.sellerPrice,cod_count:OS.codCount,prepaid_count:OS.prepaidCount,
+      total_paid:totalPaid,payment_id:resp?.razorpay_payment_id||'manual',
+      razorpay_order_id:resp?.razorpay_order_id||null,status:'paid',user_id:CU.id,
+      is_manual:OS.mode==='manual',
+      customer_name:OS.manualData?.customerName||null,customer_phone:OS.manualData?.customerPhone||null,
+      customer_address:OS.manualData?.address||null,
+      call_confirmation:OS.callConf,call_recording:OS.callRec,call_confirmation_fee:callFee,
+      call_status:OS.callConf?'pending':'none',
+      created_at:new Date().toISOString()
     });
-  }catch(e){ console.error('saveOrder:',e); }
+    // If call confirmation needed, create task
+    if(OS.callConf){
+      const {data:ord}=await db.from('orders').select('id').eq('payment_id',resp?.razorpay_payment_id||'manual').single();
+      if(ord)await db.from('call_tasks').insert({order_id:ord.id,status:'unassigned',created_at:new Date().toISOString()});
+    }
+  }catch(e){console.error('saveOrder:',e);}
 }
 
-// ═══ TOAST ════════════════════════════════════════
-function showToast(msg,type='info'){
+// ═══ HELPDESK ══════════════════════════════════════════════
+function switchHD(type,el){
+  document.querySelectorAll('.hd-tab').forEach(t=>t.classList.remove('act'));
+  el.classList.add('act');
+  document.getElementById('hd-email-form').style.display=type==='email'?'':'none';
+  document.getElementById('hd-callback-form').style.display=type==='callback'?'':'none';
+}
+async function submitTicket(type){
+  let payload={type,user_id:CU?.id||null,created_at:new Date().toISOString()};
+  if(type==='email'){
+    const name=document.getElementById('hdName').value.trim();
+    const email=document.getElementById('hdEmail').value.trim();
+    const msg=document.getElementById('hdMsg').value.trim();
+    if(!name||!email||!msg){toast('Fill required fields','error');return;}
+    payload={...payload,name,email,phone:document.getElementById('hdPhone').value.trim(),subject:document.getElementById('hdSubject').value.trim(),message:msg,status:'open'};
+  }else{
+    const name=document.getElementById('cbName').value.trim();
+    const phone=document.getElementById('cbPhone').value.trim();
+    if(!name||!phone){toast('Name and phone required','error');return;}
+    payload={...payload,name,phone,callback_date:document.getElementById('cbDate').value,callback_time:document.getElementById('cbTime').value,message:document.getElementById('cbMsg').value.trim(),status:'open'};
+  }
+  try{
+    await db.from('helpdesk_tickets').insert(payload);
+    toast(type==='email'?'Message sent to Coreconics@fastservice.com!':'Callback request submitted!','success');
+    ['hdName','hdEmail','hdPhone','hdSubject','hdMsg','cbName','cbPhone','cbMsg'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  }catch(e){toast('Failed to submit: '+e.message,'error');}
+}
+
+// ═══ OTP HELPERS ═══════════════════════════════════════════
+function buildOTPInputs(containerId,len){
+  const c=document.getElementById(containerId);if(!c)return;
+  c.innerHTML='';
+  for(let i=0;i<len;i++){
+    const inp=document.createElement('input');
+    inp.type='text';inp.maxLength=1;inp.className='otp-inp';inp.inputMode='numeric';inp.pattern='[0-9]';
+    inp.addEventListener('input',e=>{e.target.value=e.target.value.replace(/\D/,'');if(e.target.value&&i<len-1)c.children[i+1].focus();});
+    inp.addEventListener('keydown',e=>{if(e.key==='Backspace'&&!e.target.value&&i>0)c.children[i-1].focus();});
+    c.appendChild(inp);
+  }
+}
+function getOTPValue(containerId){
+  const c=document.getElementById(containerId);if(!c)return'';
+  return Array.from(c.children).map(i=>i.value).join('');
+}
+
+// ═══ TOAST ═════════════════════════════════════════════════
+function toast(msg,type='info'){
   const w=document.getElementById('toastWrap');
   const t=document.createElement('div');
-  t.className=`toast ${type}`;
-  t.innerHTML=`<div class="td"></div>${msg}`;
+  t.className=`toast ${type}`;t.innerHTML=`<div class="td"></div>${msg}`;
   w.appendChild(t);
-  setTimeout(()=>{ t.style.cssText='opacity:0;transform:translateX(12px);transition:all .3s'; setTimeout(()=>t.remove(),320); },3200);
+  setTimeout(()=>{t.style.cssText='opacity:0;transform:translateX(11px);transition:all .3s';setTimeout(()=>t.remove(),320);},3200);
 }
 
-// ═══ BOOT ═════════════════════════════════════════
+// ═══ BOOT ══════════════════════════════════════════════════
 init();
 </script>
 </body>

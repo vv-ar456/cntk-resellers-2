@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Staff Panel — Dropship Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#080a0e;--void:#0d1017;--sur:#111620;--card:#161d2a;--cardh:#1c2538;--brd:#1e2d47;--brdb:#2a3f60;--amb:#f5a623;--ag:rgba(245,166,35,.15);--txt:#e8edf5;--sub:#7a8ba8;--mut:#3d5070;--grn:#00e67a;--red:#ff4757;--ora:#ff6b35;--tel:#00d4aa;--blu:#00d4ff;--r:12px;--rs:8px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh;-webkit-user-select:none;user-select:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
+
+/* LOGIN */
+#loginScr{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+.lcard{background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:40px 34px;width:100%;max-width:360px;text-align:center}
+.llogo{font-family:'Bebas Neue';font-size:28px;letter-spacing:4px;color:var(--amb);margin-bottom:2px}
+.lsub{color:var(--mut);font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;margin-bottom:28px}
+.linp{width:100%;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:11px 13px;color:var(--txt);font-family:'DM Sans';font-size:13px;outline:none;transition:.2s;margin-bottom:10px;text-align:center}
+.linp:focus{border-color:var(--amb);box-shadow:0 0 0 3px var(--ag)}
+.lbtn{width:100%;background:var(--amb);color:#000;border:none;border-radius:var(--rs);padding:12px;font-family:'DM Sans';font-weight:700;font-size:13px;cursor:pointer;transition:.2s}
+.lbtn:hover{background:#ffb733}
+.lerr{color:var(--red);font-size:11px;margin-top:8px;min-height:16px}
+
+/* HEADER */
+header{background:rgba(8,10,14,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--brd);padding:0 20px;position:sticky;top:0;z-index:100}
+.hdr{max-width:900px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:56px}
+.logo{font-family:'Bebas Neue';font-size:20px;letter-spacing:3px;color:var(--amb)}
+.logo small{font-family:'JetBrains Mono';font-size:9px;color:var(--mut);display:block;letter-spacing:1px;margin-top:-3px}
+.staff-info{display:flex;align-items:center;gap:10px}
+.sav{width:32px;height:32px;background:var(--amb);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#000}
+.sname{font-size:13px;font-weight:600}
+.btn-logout{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25);border-radius:var(--rs);padding:6px 12px;font-family:'DM Sans';font-weight:600;font-size:11px;cursor:pointer;transition:.2s}
+.btn-logout:hover{background:var(--red);color:#fff}
+
+/* MAIN */
+.wrap{max-width:900px;margin:0 auto;padding:24px 20px}
+
+/* TABS */
+.tabs{display:flex;gap:0;background:var(--sur);border-radius:var(--r);padding:4px;margin-bottom:24px;overflow-x:auto}
+.tab{flex:1;padding:9px 16px;text-align:center;font-size:12px;font-weight:600;cursor:pointer;border-radius:var(--rs);transition:.2s;color:var(--sub);white-space:nowrap;border:none;background:none;font-family:'DM Sans';position:relative}
+.tab.act{background:var(--amb);color:#000}
+.tab .nbdg{position:absolute;top:4px;right:8px;background:var(--red);color:#fff;border-radius:100px;font-size:9px;font-weight:700;padding:1px 5px;font-family:'JetBrains Mono'}
+.pg{display:none}.pg.act{display:block}
+
+/* CARDS */
+.task-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:20px;margin-bottom:14px;transition:.2s}
+.task-card:hover{border-color:var(--brdb)}
+.task-card.urgent{border-color:var(--amb)}
+.tc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.tc-id{font-family:'JetBrains Mono';font-size:10px;color:var(--amb)}
+.tc-date{font-size:10px;color:var(--mut)}
+.tc-prod{font-size:14px;font-weight:600;margin-bottom:8px}
+.tc-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tc-pill{font-size:10px;color:var(--sub);background:var(--sur);border-radius:5px;padding:2px 8px}
+.tc-cust{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:12px;margin-bottom:14px}
+.tc-cust-row{display:flex;gap:10px;margin-bottom:6px;font-size:12px}
+.tc-cust-row:last-child{margin-bottom:0}
+.tc-cust-lbl{color:var(--mut);font-family:'JetBrains Mono';font-size:10px;min-width:80px;flex-shrink:0}
+.tc-cust-val{color:var(--txt);font-weight:500}
+.badge{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono'}
+.b-a{background:rgba(0,230,122,.12);color:var(--grn);border:1px solid rgba(0,230,122,.25)}
+.b-p{background:rgba(245,166,35,.12);color:var(--amb);border:1px solid rgba(245,166,35,.2)}
+.b-r{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2)}
+.b-s{background:rgba(0,212,255,.1);color:var(--blu);border:1px solid rgba(0,212,255,.2)}
+
+/* FORM */
+.fg{margin-bottom:12px}
+.lbl{display:block;font-size:10px;color:var(--sub);margin-bottom:4px;font-family:'JetBrains Mono';letter-spacing:.5px;text-transform:uppercase}
+.inp{width:100%;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:10px 12px;color:var(--txt);font-family:'DM Sans';font-size:13px;outline:none;transition:.2s}
+.inp:focus{border-color:var(--amb);box-shadow:0 0 0 3px var(--ag)}
+textarea.inp{resize:vertical;min-height:70px}
+.btn{border:none;border-radius:var(--rs);padding:10px 18px;font-family:'DM Sans';font-weight:700;font-size:13px;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;gap:7px;justify-content:center}
+.btn-a{background:var(--amb);color:#000}.btn-a:hover{background:#ffb733}
+.btn-a:disabled{opacity:.5;cursor:not-allowed}
+.btn-g{background:transparent;color:var(--sub);border:1px solid var(--brd)}.btn-g:hover{border-color:var(--brdb);color:var(--txt)}
+.btn-grn{background:rgba(0,230,122,.15);color:var(--grn);border:1px solid rgba(0,230,122,.3)}.btn-grn:hover{background:var(--grn);color:#000}
+.btn-red{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25)}.btn-red:hover{background:var(--red);color:#fff}
+.btn-w{width:100%}
+.btn-row{display:flex;gap:10px;margin-top:14px}
+.btn-row .btn{flex:1}
+
+/* UPLOAD */
+.uarea{border:2px dashed var(--brd);border-radius:var(--r);padding:28px 16px;text-align:center;cursor:pointer;transition:.3s;position:relative;background:var(--sur)}
+.uarea:hover{border-color:var(--amb);background:rgba(245,166,35,.04)}
+.uarea input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.uarea svg{width:30px;height:30px;color:var(--amb);margin-bottom:8px}
+.uarea p{color:var(--sub);font-size:12px}
+.uarea .ft{font-family:'JetBrains Mono';font-size:9px;color:var(--mut);margin-top:4px}
+.uprev{width:100%;height:120px;object-fit:cover;border-radius:var(--rs);margin-top:8px;display:none;border:1px solid var(--brd)}
+.uprog{height:4px;background:var(--brd);border-radius:2px;margin-top:8px;overflow:hidden;display:none}
+.uprog-fill{height:100%;background:var(--amb);border-radius:2px;transition:width .3s}
+
+/* RESULT SECTION */
+.result-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.ropt{border:1px solid var(--brd);border-radius:var(--rs);padding:14px;cursor:pointer;transition:.2s;text-align:center}
+.ropt:hover{border-color:var(--amb)}
+.ropt.sel{border-color:var(--amb);background:var(--ag)}
+.ropt.sel-grn{border-color:var(--grn);background:rgba(0,230,122,.1)}
+.ropt.sel-red{border-color:var(--red);background:rgba(255,71,87,.08)}
+.ropt .ri{font-size:24px;margin-bottom:6px}
+.ropt .rt{font-weight:600;font-size:13px;margin-bottom:2px}
+.ropt .rs{font-size:11px;color:var(--sub)}
+
+/* HISTORY */
+.hist-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--brd)}
+.hist-row:last-child{border-bottom:none}
+.hr-id{font-family:'JetBrains Mono';font-size:10px;color:var(--amb);width:80px;flex-shrink:0}
+.hr-prod{flex:1;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hr-result{flex-shrink:0}
+.hr-date{font-size:10px;color:var(--mut);flex-shrink:0}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--mut)}
+.empty svg{width:44px;height:44px;margin-bottom:14px;opacity:.2}
+.empty p{font-size:12px}
+
+/* TOAST */
+.tw{position:fixed;bottom:20px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:7px}
+.toast{background:var(--card);border:1px solid var(--brd);border-radius:var(--rs);padding:10px 13px;min-width:200px;font-size:12px;color:var(--txt);box-shadow:0 5px 20px rgba(0,0,0,.4);animation:toastIn .3s ease;display:flex;align-items:center;gap:7px}
+@keyframes toastIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+.toast.success{border-color:var(--grn)}.toast.error{border-color:var(--red)}.toast.info{border-color:var(--amb)}
+.td{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.toast.success .td{background:var(--grn)}.toast.error .td{background:var(--red)}.toast.info .td{background:var(--amb)}
+
+/* SPINNER */
+.spin{width:18px;height:18px;border:2px solid var(--brd);border-top-color:var(--amb);border-radius:50%;animation:sp .8s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScr">
+  <div class="lcard">
+    <div class="llogo">STAFF</div>
+    <div class="lsub">DROPSHIP PRO — STAFF PORTAL</div>
+    <input class="linp" type="email" id="lEmail" placeholder="Staff Email" autocomplete="email">
+    <input class="linp" type="password" id="lPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="lbtn" onclick="doLogin()" id="lBtn">Sign In</button>
+    <div class="lerr" id="lErr"></div>
+    <p style="font-size:10px;color:var(--mut);margin-top:16px;font-family:'JetBrains Mono'">Credentials provided by admin</p>
+  </div>
+</div>
+
+<!-- APP -->
+<header>
+  <div class="hdr">
+    <div class="logo">STAFF<small>PORTAL</small></div>
+    <div class="staff-info">
+      <div class="sav" id="staffAv">S</div>
+      <div>
+        <div class="sname" id="staffName">Staff</div>
+        <div style="font-size:9px;color:var(--mut);font-family:'JetBrains Mono'">CALL AGENT</div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab act" id="tab-tasks" onclick="showTab('tasks',this)">
+      My Tasks
+      <span class="nbdg" id="taskBadge" style="display:none">0</span>
+    </button>
+    <button class="tab" id="tab-history" onclick="showTab('history',this)">Completed</button>
+  </div>
+
+  <!-- TASKS -->
+  <div class="pg act" id="pg-tasks">
+    <div id="tasksList">
+      <div style="display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px;padding:20px">
+        <div class="spin"></div>Loading tasks…
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="pg" id="pg-history">
+    <div class="task-card">
+      <div style="font-family:'Bebas Neue';font-size:18px;letter-spacing:1px;margin-bottom:14px">Completed Tasks</div>
+      <div id="histList">
+        <div style="color:var(--mut);font-size:12px;text-align:center;padding:20px">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TASK ACTION MODAL (inline in page) -->
+<div class="tw" id="toastWrap"></div>
+
+<script>
+// ═══ CONFIG ════════════════════════════════════════
+const SB_URL='https://szvnnkukkgqddaahrwui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzE3MTUsImV4cCI6MjA5MjQwNzcxNX0.-13k_Yr7w4vr_8sG7dc9Vv0StQi1rFmz-O2isiXQdsY';
+const {createClient}=supabase;
+const db=createClient(SB_URL,SB_KEY);
+
+// Security
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{
+  if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
+});
+
+// ═══ STATE ═════════════════════════════════════════
+let STAFF=null;
+let myTasks=[], allOrders=[];
+let activeTaskId=null;
+let selectedResult=null;
+let uploadedRecordingUrl='';
+
+// ═══ AUTH ══════════════════════════════════════════
+async function doLogin(){
+  const email=document.getElementById('lEmail').value.trim().toLowerCase();
+  const pass=document.getElementById('lPass').value;
+  const btn=document.getElementById('lBtn');
+  const err=document.getElementById('lErr');
+  err.textContent='';
+  if(!email||!pass){err.textContent='Fill all fields.';return;}
+
+  // Check lockout
+  const locked=localStorage.getItem('staff_locked_until');
+  if(locked&&Date.now()<parseInt(locked)){err.textContent='Too many attempts. Wait 15 min.';return;}
+
+  btn.disabled=true;btn.textContent='Signing in…';
+
+  // Hash password SHA-256
+  const encoder=new TextEncoder();
+  const data2=encoder.encode(pass);
+  const hashBuffer=await crypto.subtle.digest('SHA-256',data2);
+  const hashArray=Array.from(new Uint8Array(hashBuffer));
+  const hashHex=hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
+
+  // Lookup staff in DB
+  const {data,error}=await db.from('staff').select('*').eq('email',email).eq('active',true).single();
+
+  btn.disabled=false;btn.textContent='Sign In';
+
+  if(error||!data){
+    recordFailedAttempt(err);return;
+  }
+  if(data.password_hash!==hashHex){
+    recordFailedAttempt(err);return;
+  }
+
+  // Success
+  localStorage.removeItem('staff_attempts');
+  localStorage.removeItem('staff_locked_until');
+  localStorage.setItem('staff_id',data.id);
+  localStorage.setItem('staff_login_time',Date.now().toString());
+  STAFF=data;
+  admitStaff();
+}
+
+function recordFailedAttempt(errEl){
+  const attempts=(parseInt(localStorage.getItem('staff_attempts')||'0'))+1;
+  localStorage.setItem('staff_attempts',attempts);
+  if(attempts>=5){
+    localStorage.setItem('staff_locked_until',Date.now()+15*60000);
+    errEl.textContent='Account locked 15 minutes.';
+  }else{
+    errEl.textContent=`Invalid credentials. ${5-attempts} attempt(s) left.`;
+  }
+}
+
+async function restoreSession(){
+  const staffId=localStorage.getItem('staff_id');
+  const loginTime=parseInt(localStorage.getItem('staff_login_time')||'0');
+  if(!staffId||!loginTime)return;
+  // 8hr session for staff
+  if(Date.now()-loginTime>8*3600000){
+    localStorage.removeItem('staff_id');localStorage.removeItem('staff_login_time');return;
+  }
+  const {data}=await db.from('staff').select('*').eq('id',staffId).eq('active',true).single();
+  if(data){STAFF=data;admitStaff();}
+}
+
+function admitStaff(){
+  document.getElementById('loginScr').style.display='none';
+  document.getElementById('staffName').textContent=STAFF.name;
+  document.getElementById('staffAv').textContent=STAFF.name.charAt(0).toUpperCase();
+  loadMyTasks();
+  // Auto-refresh every 60s
+  setInterval(loadMyTasks,60000);
+}
+
+function doLogout(){
+  localStorage.removeItem('staff_id');localStorage.removeItem('staff_login_time');
+  location.reload();
+}
+
+// ═══ TASKS ═════════════════════════════════════════
+async function loadMyTasks(){
+  if(!STAFF)return;
+  try{
+    const {data:tasks}=await db.from('call_tasks').select('*').eq('assigned_to',STAFF.id).order('created_at',{ascending:false});
+    myTasks=tasks||[];
+    // Load order details
+    const orderIds=[...new Set(myTasks.map(t=>t.order_id).filter(Boolean))];
+    if(orderIds.length){
+      const {data:ords}=await db.from('orders').select('*').in('id',orderIds);
+      allOrders=ords||[];
+    }
+  }catch{myTasks=[];}
+  renderTasks();renderHistory();
+  const pending=myTasks.filter(t=>t.status==='assigned').length;
+  const bdg=document.getElementById('taskBadge');
+  bdg.style.display=pending>0?'':'none';bdg.textContent=pending;
+}
+
+function renderTasks(){
+  const list=document.getElementById('tasksList');
+  const pending=myTasks.filter(t=>t.status==='assigned');
+  if(!pending.length){
+    list.innerHTML=`<div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p>No pending tasks. Check back soon!</p></div>`;
+    return;
+  }
+  list.innerHTML=pending.map(task=>{
+    const ord=allOrders.find(o=>o.id===task.order_id);
+    return `
+      <div class="task-card urgent" id="tc-${task.id}">
+        <div class="tc-top">
+          <div class="tc-id">TASK #${task.id.substring(0,8).toUpperCase()}</div>
+          <div class="tc-date">${new Date(task.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</div>
+        </div>
+        <div class="tc-prod">${ord?.product_name||'Unknown Product'}</div>
+        <div class="tc-meta">
+          <div class="tc-pill">Order: #${String(task.order_id||'').substring(0,8).toUpperCase()}</div>
+          ${ord?.call_recording?'<div class="tc-pill" style="color:var(--blu)">Recording Required</div>':''}
+          <div class="tc-pill">COD: ${ord?.cod_count||0} &nbsp;·&nbsp; Prepaid: ${ord?.prepaid_count||0}</div>
+        </div>
+        ${ord?.customer_name||ord?.customer_phone?`
+          <div class="tc-cust">
+            ${ord.customer_name?`<div class="tc-cust-row"><span class="tc-cust-lbl">Customer</span><span class="tc-cust-val">${ord.customer_name}</span></div>`:''}
+            ${ord.customer_phone?`<div class="tc-cust-row"><span class="tc-cust-lbl">Phone</span><span class="tc-cust-val" style="color:var(--amb);font-family:'JetBrains Mono'">${ord.customer_phone}</span></div>`:''}
+            ${ord.customer_address?`<div class="tc-cust-row"><span class="tc-cust-lbl">Address</span><span class="tc-cust-val">${ord.customer_address}</span></div>`:''}
+          </div>`:'<div style="font-size:11px;color:var(--mut);margin-bottom:12px">No customer details on file. Check admin for details.</div>'}
+        <div id="action-${task.id}">
+          <button class="btn btn-a btn-w" onclick="openTaskAction('${task.id}')">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 13a19.79 19.79 0 01-3.07-8.67A2 2 0 012 2.18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+            Submit Call Result
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderHistory(){
+  const hist=document.getElementById('histList');
+  const done=myTasks.filter(t=>t.status==='completed');
+  if(!done.length){hist.innerHTML='<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">No completed tasks yet.</div>';return;}
+  hist.innerHTML=done.map(t=>{
+    const ord=allOrders.find(o=>o.id===t.order_id);
+    return `<div class="hist-row">
+      <div class="hr-id">#${t.id.substring(0,8).toUpperCase()}</div>
+      <div class="hr-prod">${ord?.product_name||'—'}</div>
+      <div class="hr-result"><span class="badge ${t.result==='confirmed'?'b-a':'b-r'}">${(t.result||'—').toUpperCase()}</span></div>
+      <div class="hr-date">${new Date(t.submitted_at||t.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══ TASK ACTION ════════════════════════════════════
+function openTaskAction(taskId){
+  activeTaskId=taskId;
+  selectedResult=null;
+  uploadedRecordingUrl='';
+  const task=myTasks.find(t=>t.id===taskId);
+  const ord=allOrders.find(o=>o.id===task?.order_id);
+  const needsRec=ord?.call_recording||false;
+
+  const actionDiv=document.getElementById('action-'+taskId);
+  actionDiv.innerHTML=`
+    <div style="border-top:1px solid var(--brd);padding-top:16px;margin-top:4px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:12px;color:var(--amb)">📞 Call Result</div>
+      <div class="result-opts">
+        <div class="ropt" id="ropt-confirmed" onclick="selectResult('confirmed')">
+          <div class="ri">✅</div>
+          <div class="rt">Confirmed</div>
+          <div class="rs">Customer confirmed order</div>
+        </div>
+        <div class="ropt" id="ropt-cancelled" onclick="selectResult('cancelled')">
+          <div class="ri">❌</div>
+          <div class="rt">Cancelled</div>
+          <div class="rs">Customer cancelled order</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="lbl">Call Notes</label>
+        <textarea class="inp" id="callNotes-${taskId}" placeholder="e.g. Customer confirmed delivery to home address, expects in 3 days…"></textarea>
+      </div>
+      ${needsRec?`
+        <div class="fg">
+          <label class="lbl">Call Recording Upload *</label>
+          <div class="uarea" id="recArea-${taskId}">
+            <input type="file" accept="audio/*,video/*,.mp3,.mp4,.wav,.m4a,.ogg" onchange="handleRecording(event,'${taskId}')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+            <p>Upload call recording</p>
+            <div class="ft">MP3, MP4, WAV, M4A supported</div>
+          </div>
+          <div class="uprog" id="recProg-${taskId}"><div class="uprog-fill" id="recFill-${taskId}" style="width:0%"></div></div>
+          <div id="recStatus-${taskId}" style="font-size:10px;color:var(--grn);margin-top:5px;font-family:'JetBrains Mono'"></div>
+        </div>`:''}
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="cancelAction('${taskId}')">Cancel</button>
+        <button class="btn btn-a" id="submitBtn-${taskId}" onclick="submitResult('${taskId}',${needsRec})" disabled>Submit Result</button>
+      </div>
+    </div>`;
+}
+
+function selectResult(result){
+  selectedResult=result;
+  document.getElementById('ropt-confirmed').className='ropt'+(result==='confirmed'?' sel-grn':'');
+  document.getElementById('ropt-cancelled').className='ropt'+(result==='cancelled'?' sel-red':'');
+  // Enable submit if recording not needed or already uploaded
+  const taskId=activeTaskId;
+  const btn=document.getElementById('submitBtn-'+taskId);
+  if(btn)btn.disabled=false;
+}
+
+function cancelAction(taskId){
+  const actionDiv=document.getElementById('action-'+taskId);
+  actionDiv.innerHTML=`<button class="btn btn-a btn-w" onclick="openTaskAction('${taskId}')">
+    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 13a19.79 19.79 0 01-3.07-8.67A2 2 0 012 2.18h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
+    Submit Call Result
+  </button>`;
+  selectedResult=null;uploadedRecordingUrl='';
+}
+
+async function handleRecording(event,taskId){
+  const file=event.target.files[0];if(!file)return;
+  const maxSize=50*1024*1024; // 50MB
+  if(file.size>maxSize){toast('File too large. Max 50MB.','error');return;}
+  const prog=document.getElementById('recProg-'+taskId);
+  const fill=document.getElementById('recFill-'+taskId);
+  const status=document.getElementById('recStatus-'+taskId);
+  prog.style.display='block';fill.style.width='20%';
+  status.textContent='Uploading…';
+  try{
+    const ext=file.name.split('.').pop();
+    const path=`recordings/${activeTaskId}_${Date.now()}.${ext}`;
+    fill.style.width='60%';
+    const {data,error}=await db.storage.from('call-recordings').upload(path,file,{contentType:file.type,upsert:true});
+    if(error)throw error;
+    fill.style.width='100%';
+    uploadedRecordingUrl=path;
+    status.textContent='✓ Recording uploaded successfully';
+    toast('Recording uploaded!','success');
+    // Enable submit button
+    const btn=document.getElementById('submitBtn-'+taskId);
+    if(btn&&selectedResult)btn.disabled=false;
+  }catch(e){
+    prog.style.display='none';
+    status.textContent='Upload failed: '+e.message;
+    status.style.color='var(--red)';
+    toast('Upload failed','error');
+  }
+}
+
+async function submitResult(taskId,needsRec){
+  if(!selectedResult){toast('Select a result (Confirmed/Cancelled)','error');return;}
+  if(needsRec&&!uploadedRecordingUrl){toast('Recording upload required','error');return;}
+  const notes=document.getElementById('callNotes-'+taskId)?.value||'';
+  const btn=document.getElementById('submitBtn-'+taskId);
+  if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  try{
+    const now=new Date().toISOString();
+    // Update call task
+    await db.from('call_tasks').update({
+      status:'completed',result:selectedResult,call_notes:notes,
+      recording_url:uploadedRecordingUrl||null,submitted_at:now
+    }).eq('id',taskId);
+    // Update order call status
+    const task=myTasks.find(t=>t.id===taskId);
+    if(task?.order_id){
+      await db.from('orders').update({call_status:selectedResult}).eq('id',task.order_id);
+    }
+    toast('Result submitted! Admin has been notified.','success');
+    await loadMyTasks();
+    showTab('history',document.getElementById('tab-history'));
+  }catch(e){
+    toast('Submission failed: '+e.message,'error');
+    if(btn){btn.disabled=false;btn.textContent='Submit Result';}
+  }
+}
+
+// ═══ NAVIGATION ════════════════════════════════════
+function showTab(name,btn){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('act'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('act'));
+  document.getElementById('pg-'+name)?.classList.add('act');
+  btn.classList.add('act');
+  if(name==='history')renderHistory();
+}
+
+// ═══ TOAST ═════════════════════════════════════════
+function toast(msg,type='info'){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');
+  t.className=`toast ${type}`;t.innerHTML=`<div class="td"></div>${msg}`;
+  w.appendChild(t);
+  setTimeout(()=>{t.style.cssText='opacity:0;transform:translateX(11px);transition:all .3s';setTimeout(()=>t.remove(),320);},3500);
+}
+
+// ═══ BOOT ══════════════════════════════════════════
+restoreSession();
+</script>
+</body>
+</html>
