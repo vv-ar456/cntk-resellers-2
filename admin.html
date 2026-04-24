@@ -1,117 +1,1005 @@
-x.id===taskId);if(!ct)return;
-  document.getElementById('ctModBody').innerHTML=`
-    <div style="display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;gap:10px"><span style="font-size:10px;color:var(--mut);font-family:'JetBrains Mono';min-width:100px">RESULT</span><span class="badge ${ct.result==='confirmed'?'b-a':'b-r'}">${(ct.result||'—').toUpperCase()}</span></div>
-      <div style="display:flex;gap:10px"><span style="font-size:10px;color:var(--mut);font-family:'JetBrains Mono';min-width:100px">NOTES</span><span style="font-size:12px">${ct.call_notes||'—'}</span></div>
-      <div style="display:flex;gap:10px"><span style="font-size:10px;color:var(--mut);font-family:'JetBrains Mono';min-width:100px">RECORDING</span>${ct.recording_url?`<a href="${getPublicUrl('call-recordings',ct.recording_url)}" target="_blank" style="color:var(--amb);font-size:11px">▶ Play Recording</a>`:'<span style="font-size:11px;color:var(--mut)">Not uploaded</span>'}</div>
-      <div style="display:flex;gap:10px"><span style="font-size:10px;color:var(--mut);font-family:'JetBrains Mono';min-width:100px">SUBMITTED</span><span style="font-size:12px">${ct.submitted_at?new Date(ct.submitted_at).toLocaleString('en-IN'):'—'}</span></div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Admin — Dropship Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#080a0e;--void:#0d1017;--sur:#111620;--card:#161d2a;--cardh:#1c2538;--brd:#1e2d47;--brdb:#2a3f60;--amb:#f5a623;--ag:rgba(245,166,35,.15);--txt:#e8edf5;--sub:#7a8ba8;--mut:#3d5070;--grn:#00e67a;--red:#ff4757;--ora:#ff6b35;--tel:#00d4aa;--blu:#00d4ff;--r:10px;--rs:8px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;min-height:100vh;-webkit-user-select:none;user-select:none}
+input,textarea,select{-webkit-user-select:text;user-select:text;-webkit-appearance:none}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--brd);border-radius:2px}
+
+/* ── LOGIN ── */
+#loginScr{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;padding:16px}
+.lcard{background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:36px 28px;width:100%;max-width:360px;text-align:center}
+.llogo{font-family:'Bebas Neue';font-size:28px;letter-spacing:4px;color:var(--amb);margin-bottom:2px}
+.lsub{color:var(--mut);font-family:'JetBrains Mono';font-size:9px;letter-spacing:2px;margin-bottom:26px}
+.linp{width:100%;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:12px 14px;color:var(--txt);font-family:'DM Sans';font-size:14px;outline:none;margin-bottom:10px;text-align:center;transition:border-color .2s}
+.linp:focus{border-color:var(--amb)}
+.lbtn{width:100%;background:var(--amb);color:#000;border:none;border-radius:var(--rs);padding:13px;font-family:'DM Sans';font-weight:700;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.lerr{color:var(--red);font-size:11px;margin-top:8px;min-height:16px}
+.ltimer{font-family:'JetBrains Mono';font-size:10px;color:var(--mut);margin-top:8px}
+
+/* ── APP SHELL ── */
+.app{display:none;flex-direction:column;min-height:100vh}
+.app.show{display:flex}
+
+/* ── TOP NAV ── */
+.tnav{background:rgba(8,10,14,.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--brd);position:sticky;top:0;z-index:100;padding:0 14px}
+.tnav-in{display:flex;align-items:center;justify-content:space-between;height:52px}
+.tnav-logo{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;color:var(--amb)}
+.tnav-logo small{font-family:'JetBrains Mono';font-size:8px;color:var(--mut);display:block;letter-spacing:1px;margin-top:-3px}
+.tnav-r{display:flex;align-items:center;gap:8px}
+.tnavbtn{background:var(--sur);border:1px solid var(--brd);border-radius:7px;padding:6px 10px;font-family:'DM Sans';font-weight:600;font-size:11px;color:var(--sub);cursor:pointer;-webkit-tap-highlight-color:transparent;text-decoration:none;display:inline-flex;align-items:center;gap:5px}
+.tnavbtn.primary{background:var(--amb);color:#000;border-color:var(--amb)}
+.hamburger{width:36px;height:36px;background:var(--sur);border:1px solid var(--brd);border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hamburger span{width:16px;height:2px;background:var(--sub);border-radius:1px;transition:.2s}
+
+/* ── SIDEBAR ── */
+.sidebar{position:fixed;top:0;left:-280px;width:260px;height:100%;background:var(--void);border-right:1px solid var(--brd);z-index:200;transition:left .3s ease;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar.open{left:0}
+.sb-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:199;display:none;-webkit-tap-highlight-color:transparent}
+.sb-overlay.show{display:block}
+.sb-head{padding:16px 14px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between}
+.sb-logo{font-family:'Bebas Neue';font-size:18px;letter-spacing:3px;color:var(--amb)}
+.sb-logo small{font-family:'JetBrains Mono';font-size:8px;color:var(--mut);display:block;margin-top:-2px;letter-spacing:1px}
+.sb-x{width:28px;height:28px;background:var(--sur);border:1px solid var(--brd);border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--sub);cursor:pointer;font-size:14px;-webkit-tap-highlight-color:transparent}
+.sb-nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
+.sb-sec{font-family:'JetBrains Mono';font-size:8px;color:var(--mut);letter-spacing:2px;text-transform:uppercase;padding:8px 8px 4px}
+.sblink{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:var(--rs);color:var(--sub);cursor:pointer;font-size:13px;font-weight:500;border:none;background:none;width:100%;text-align:left;font-family:'DM Sans';-webkit-tap-highlight-color:transparent;position:relative}
+.sblink svg{width:15px;height:15px;flex-shrink:0}
+.sblink.act{background:var(--ag);color:var(--amb);border:1px solid rgba(245,166,35,.2)}
+.sblink .noti{position:absolute;right:8px;background:var(--red);color:#fff;border-radius:100px;font-size:9px;font-weight:700;padding:1px 6px;font-family:'JetBrains Mono'}
+.sb-foot{padding:10px 8px;border-top:1px solid var(--brd)}
+.admin-info{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--sur);border-radius:var(--rs);margin-bottom:6px}
+.aav{width:28px;height:28px;background:var(--amb);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#000;flex-shrink:0}
+.aname{font-size:12px;font-weight:600}
+.arole{font-size:9px;color:var(--mut);font-family:'JetBrains Mono'}
+
+/* ── MAIN ── */
+.main{flex:1;min-width:0}
+.pg{display:none;padding:14px}
+.pg.act{display:block}
+.stl{font-family:'Bebas Neue';font-size:20px;letter-spacing:1px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.stl-r{display:flex;gap:7px}
+
+/* ── STATS ── */
+.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.sc{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px;position:relative;overflow:hidden}
+.sc::after{content:'';position:absolute;top:0;right:0;width:36px;height:36px;background:radial-gradient(circle at top right,var(--ag),transparent)}
+.si{width:26px;height:26px;background:var(--sur);border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--amb);margin-bottom:8px}
+.si svg{width:13px;height:13px}
+.sv{font-family:'Bebas Neue';font-size:24px;line-height:1;margin-bottom:2px}
+.sl{font-size:10px;color:var(--mut)}
+
+/* ── CARD ── */
+.tcard{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.tch{padding:12px 14px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tcttl{font-family:'Bebas Neue';font-size:15px;letter-spacing:1px}
+.ts{background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:7px 10px;color:var(--txt);font-family:'DM Sans';font-size:12px;outline:none;-webkit-appearance:none;flex:1;min-width:0}
+.ts:focus{border-color:var(--amb)}
+.ts::placeholder{color:var(--mut)}
+
+/* ── ROWS (mobile-first card layout) ── */
+.data-list{padding:4px 0}
+.data-item{padding:12px 14px;border-bottom:1px solid var(--brd);display:flex;flex-direction:column;gap:6px}
+.data-item:last-child{border-bottom:none}
+.di-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.di-main{font-size:13px;font-weight:600;flex:1;min-width:0}
+.di-main small{display:block;font-size:10px;color:var(--mut);font-family:'JetBrains Mono';font-weight:400;margin-top:2px}
+.di-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.di-amt{font-family:'Bebas Neue';font-size:18px;line-height:1}
+.di-meta{display:flex;gap:6px;flex-wrap:wrap}
+.di-pill{font-size:10px;color:var(--sub);background:var(--sur);border-radius:4px;padding:2px 7px}
+.di-btns{display:flex;gap:6px;flex-wrap:wrap}
+.badge{display:inline-flex;padding:2px 8px;border-radius:4px;font-size:9px;font-family:'JetBrains Mono';letter-spacing:.5px;font-weight:500}
+.b-a{background:rgba(0,230,122,.12);color:var(--grn);border:1px solid rgba(0,230,122,.2)}
+.b-i{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2)}
+.b-p{background:rgba(245,166,35,.12);color:var(--amb);border:1px solid rgba(245,166,35,.2)}
+.b-s{background:rgba(0,212,255,.1);color:var(--blu);border:1px solid rgba(0,212,255,.2)}
+.b-d{background:rgba(0,212,170,.1);color:var(--tel);border:1px solid rgba(0,212,170,.2)}
+.b-r{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2)}
+.b-w{background:rgba(0,212,170,.1);color:var(--tel);border:1px solid rgba(0,212,170,.2)}
+
+/* ── BUTTONS ── */
+.btn{border:none;border-radius:var(--rs);padding:8px 14px;font-family:'DM Sans';font-weight:600;font-size:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;display:inline-flex;align-items:center;gap:5px;justify-content:center;transition:opacity .15s}
+.btn:active{opacity:.75}
+.btn-a{background:var(--amb);color:#000}.btn-sm{padding:5px 9px;font-size:11px}
+.btn-s{background:var(--sur);color:var(--sub);border:1px solid var(--brd)}
+.btn-d{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25)}
+.btn-d:active{background:var(--red);color:#fff}
+.btn-t{background:rgba(0,212,170,.12);color:var(--tel);border:1px solid rgba(0,212,170,.25)}
+.btn-b{background:rgba(0,212,255,.1);color:var(--blu);border:1px solid rgba(0,212,255,.2)}
+.btn-g{background:rgba(0,230,122,.12);color:var(--grn);border:1px solid rgba(0,230,122,.25)}
+.btn-w{width:100%}
+
+/* ── FORM ── */
+.fg{margin-bottom:11px}
+.lbl{display:block;font-size:10px;color:var(--sub);margin-bottom:4px;font-family:'JetBrains Mono';letter-spacing:.5px;text-transform:uppercase}
+.inp{width:100%;background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:11px 12px;color:var(--txt);font-family:'DM Sans';font-size:14px;outline:none;-webkit-appearance:none;transition:border-color .2s}
+.inp:focus{border-color:var(--amb)}
+.inp::placeholder{color:var(--mut)}
+textarea.inp{resize:vertical;min-height:65px}
+select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='%237a8ba8' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;background-size:16px;padding-right:30px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+.trow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)}
+.trow:last-of-type{border-bottom:none}
+.tlbl{font-size:13px;color:var(--sub)}
+.tog{position:relative;width:38px;height:20px;background:var(--brd);border-radius:10px;cursor:pointer;transition:.2s;flex-shrink:0}
+.tog.on{background:var(--grn)}
+.tog::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:.2s}
+.tog.on::after{transform:translateX(18px)}
+
+/* ── STATUS SELECT ── */
+.ssel{background:var(--sur);border:1px solid var(--brd);border-radius:6px;padding:5px 8px;color:var(--txt);font-family:'DM Sans';font-size:11px;cursor:pointer;outline:none;-webkit-appearance:none}
+
+/* ── MODAL (bottom sheet) ── */
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:300;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.ovl.open{opacity:1;pointer-events:all}
+.mdl{background:var(--card);border:1px solid var(--brdb);border-radius:14px 14px 0 0;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,0,.67,0);padding-bottom:max(14px,env(safe-area-inset-bottom))}
+.ovl.open .mdl{transform:translateY(0);transition-timing-function:cubic-bezier(.33,1,.68,1)}
+.mdl-drag{width:36px;height:4px;background:var(--brd);border-radius:2px;margin:9px auto 0}
+.mh{padding:14px 14px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.mttl{font-family:'Bebas Neue';font-size:18px;letter-spacing:1px}
+.mx{background:var(--sur);border:1px solid var(--brd);border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);font-size:13px;-webkit-tap-highlight-color:transparent}
+.mb{padding:0 14px 14px}
+.mf{display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--brd);margin-top:12px}
+.mf .btn{flex:1;padding:11px}
+
+/* ── IMAGE UPLOAD ── */
+.uarea{border:2px dashed var(--brd);border-radius:var(--r);padding:20px 14px;text-align:center;position:relative;background:var(--sur);margin-top:7px;transition:border-color .2s}
+.uarea:active{border-color:var(--amb)}
+.uarea input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.uarea svg{width:24px;height:24px;color:var(--amb);margin-bottom:6px}
+.uarea p{color:var(--sub);font-size:12px}
+.uprog{height:4px;background:var(--brd);border-radius:2px;margin-top:8px;overflow:hidden;display:none}
+.uprog-fill{height:100%;background:var(--amb);border-radius:2px;transition:width .3s}
+.prev-img{width:100%;max-height:120px;object-fit:cover;border-radius:var(--rs);margin-top:7px;display:none;border:1px solid var(--brd)}
+
+/* ── CONFIRM ── */
+.covl{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px;opacity:0;pointer-events:none;transition:opacity .2s}
+.covl.open{opacity:1;pointer-events:all}
+.cbox{background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:24px;max-width:320px;width:100%;text-align:center}
+.ci{font-size:32px;margin-bottom:10px}
+.cttl{font-family:'Bebas Neue';font-size:20px;margin-bottom:6px;color:var(--red)}
+.cmsg{color:var(--sub);font-size:12px;margin-bottom:16px;line-height:1.6}
+.cbtns{display:flex;gap:8px}
+.cbtns .btn{flex:1;padding:10px}
+
+/* ── KYC VIEW ── */
+.kd-row{display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px}
+.kd-row:last-child{border-bottom:none}
+.kd-l{color:var(--mut);font-family:'JetBrains Mono';font-size:10px;min-width:90px;flex-shrink:0;padding-top:1px}
+.kd-v{color:var(--txt);font-weight:500;word-break:break-all;flex:1}
+.ai-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:100px;font-size:10px;font-family:'JetBrains Mono';margin-right:5px;margin-bottom:5px}
+.ai-chip.pass{background:rgba(0,230,122,.12);color:var(--grn);border:1px solid rgba(0,230,122,.2)}
+.ai-chip.warn{background:rgba(245,166,35,.12);color:var(--amb);border:1px solid rgba(245,166,35,.2)}
+.ai-chip.fail{background:rgba(255,71,87,.1);color:var(--red);border:1px solid rgba(255,71,87,.2)}
+
+/* ── WALLET in admin ── */
+.wal-summary{background:linear-gradient(135deg,#0d1a2e,#111c30);border:1px solid var(--brdb);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.ws-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
+.ws-row:last-child{border-bottom:none}
+.ws-lbl{color:var(--sub)}
+.ws-val{font-family:'Bebas Neue';font-size:17px}
+
+/* ── WITHDRAWAL CARD ── */
+.wr-card{background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.wrc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.wrc-name{font-weight:600;font-size:13px}
+.wrc-amt{font-family:'Bebas Neue';font-size:20px;color:var(--tel)}
+.wrc-bank{font-size:11px;color:var(--sub);line-height:1.7;margin-bottom:10px;background:var(--sur);padding:9px;border-radius:var(--rs)}
+.wrc-btns{display:flex;gap:7px}
+
+/* ── TOAST ── */
+.tw{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:6px;width:calc(100% - 28px);max-width:360px;pointer-events:none}
+.toast{background:var(--card);border:1px solid var(--brd);border-radius:9px;padding:9px 13px;font-size:12px;color:var(--txt);box-shadow:0 4px 16px rgba(0,0,0,.5);animation:toastIn .3s ease;display:flex;align-items:center;gap:8px;pointer-events:all}
+@keyframes toastIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:translateY(0)}}
+.toast.success{border-color:var(--grn)}.toast.error{border-color:var(--red)}.toast.info{border-color:var(--amb)}
+.td{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.toast.success .td{background:var(--grn)}.toast.error .td{background:var(--red)}.toast.info .td{background:var(--amb)}
+
+/* ── SPIN ── */
+.spin{width:14px;height:14px;border:2px solid var(--brd);border-top-color:var(--amb);border-radius:50%;animation:sp .8s linear infinite;flex-shrink:0}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-row{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:12px;padding:16px 14px}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:36px 16px;color:var(--mut)}
+.empty svg{width:40px;height:40px;margin-bottom:10px;opacity:.2}
+.empty p{font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScr">
+  <div class="lcard">
+    <div class="llogo">ADMIN</div>
+    <div class="lsub">DROPSHIP PRO — SECURE PANEL</div>
+    <input class="linp" type="email" id="lEmail" placeholder="Admin Email" autocomplete="email">
+    <input class="linp" type="password" id="lPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="lbtn" onclick="doLogin()" id="lBtn">Sign In</button>
+    <div class="lerr" id="lErr"></div>
+    <div class="ltimer" id="lTimer"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <!-- SIDEBAR OVERLAY -->
+  <div class="sb-overlay" id="sbOvl" onclick="closeSB()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-head">
+      <div><div class="sb-logo">DROP PRO<small>ADMIN</small></div></div>
+      <div class="sb-x" onclick="closeSB()">✕</div>
     </div>
-    <button class="btn btn-s" style="width:100%;justify-content:center;margin-top:14px" onclick="document.getElementById('ctMod').classList.remove('open')">Close</button>`;
+    <nav class="sb-nav">
+      <div class="sb-sec">Overview</div>
+      <button class="sblink act" onclick="showPg('dashboard',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Dashboard</button>
+      <div class="sb-sec">Catalog</div>
+      <button class="sblink" onclick="showPg('products',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5"/></svg>Products</button>
+      <button class="sblink" onclick="showPg('categories',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/></svg>Categories</button>
+      <div class="sb-sec">Business</div>
+      <button class="sblink" onclick="showPg('orders',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>Orders</button>
+      <button class="sblink" onclick="showPg('resellers',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>Resellers</button>
+      <button class="sblink" onclick="showPg('kyc',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/></svg>KYC Review<span class="noti" id="kycBadge" style="display:none">0</span></button>
+      <button class="sblink" onclick="showPg('withdrawals',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Withdrawals<span class="noti" id="wrBadge" style="display:none">0</span></button>
+      <button class="sblink" onclick="showPg('wallet',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Wallet Mgmt</button>
+      <button class="sblink" onclick="showPg('helpdesk',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 13"/></svg>Help Desk<span class="noti" id="hdBadge" style="display:none">0</span></button>
+      <button class="sblink" onclick="showPg('calltasks',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15.05 5A5 5 0 0119 8.95M15.05 1A9 9 0 0123 8.94m-1 7.98v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07"/></svg>Call Tasks<span class="noti" id="ctBadge" style="display:none">0</span></button>
+      <button class="sblink" onclick="showPg('subscriptions',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/></svg>Subscriptions</button>
+      <div class="sb-sec">System</div>
+      <button class="sblink" onclick="showPg('staff',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Staff</button>
+      <button class="sblink" onclick="showPg('settings',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4"/></svg>Settings</button>
+    </nav>
+    <div class="sb-foot">
+      <div class="admin-info"><div class="aav" id="adminAv">A</div><div><div class="aname" id="adminName">Admin</div><div class="arole">SUPER ADMIN</div></div></div>
+      <button class="sblink" style="color:var(--red)" onclick="doLogout()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Logout</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOP NAV -->
+    <div class="tnav">
+      <div class="tnav-in">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="hamburger" onclick="openSB()"><span></span><span></span><span></span></div>
+          <div style="font-family:'Bebas Neue';font-size:15px;letter-spacing:1px" id="pageTitle">Dashboard</div>
+        </div>
+        <div class="tnav-r">
+          <a href="index.html" target="_blank" class="tnavbtn">Store ↗</a>
+          <button class="tnavbtn primary" id="topAction" onclick="openProdModal()" style="display:none">+ Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="pg act" id="pg-dashboard">
+      <div class="sg">
+        <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5"/></svg></div><div class="sv" id="adProd">—</div><div class="sl">Products</div></div>
+        <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg></div><div class="sv" id="adOrd">—</div><div class="sl">Orders</div></div>
+        <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div><div class="sv" id="adRev">—</div><div class="sl">Revenue</div></div>
+        <div class="sc"><div class="si" style="color:var(--tel)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div class="sv" id="adWal" style="color:var(--tel)">—</div><div class="sl">Wallets Total</div></div>
+        <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="sv" id="adUsers">—</div><div class="sl">Resellers</div></div>
+        <div class="sc"><div class="si"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/></svg></div><div class="sv" id="adKYC" style="color:var(--amb)">—</div><div class="sl">KYC Pending</div></div>
+      </div>
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Recent Orders</div></div>
+        <div class="data-list" id="dashOrds"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Pending Withdrawals</div><button class="btn btn-b btn-sm" onclick="showPg('withdrawals',null)">View All</button></div>
+        <div class="data-list" id="dashWR"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="pg" id="pg-products">
+      <div class="tcard">
+        <div class="tch">
+          <input class="ts" placeholder="Search products…" oninput="filterList('prods',this.value)">
+          <button class="btn btn-a btn-sm" onclick="openProdModal()">+ Add</button>
+        </div>
+        <div class="data-list" id="prodsList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="pg" id="pg-categories">
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Categories</div><button class="btn btn-a btn-sm" onclick="openCatModal()">+ Add</button></div>
+        <div class="data-list" id="catsList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ORDERS -->
+    <div class="pg" id="pg-orders">
+      <div class="tcard">
+        <div class="tch"><input class="ts" placeholder="Search orders…" oninput="filterList('ords',this.value)"></div>
+        <div class="data-list" id="ordsList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- RESELLERS -->
+    <div class="pg" id="pg-resellers">
+      <div class="tcard">
+        <div class="tch"><input class="ts" placeholder="Search resellers…" oninput="filterList('resellers',this.value)"></div>
+        <div class="data-list" id="resList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- KYC -->
+    <div class="pg" id="pg-kyc">
+      <div class="tcard">
+        <div class="tch">
+          <div class="tcttl">KYC Applications</div>
+          <select class="ts" style="max-width:120px" onchange="kycFilter=this.value;renderKYC()">
+            <option value="all">All</option><option value="submitted" selected>Submitted</option>
+            <option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div class="data-list" id="kycList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- WITHDRAWALS -->
+    <div class="pg" id="pg-withdrawals">
+      <div class="stl">Withdrawal Requests</div>
+      <div id="wrList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+    </div>
+
+    <!-- WALLET MGMT -->
+    <div class="pg" id="pg-wallet">
+      <div class="stl">Wallet Management</div>
+      <div class="wal-summary">
+        <div class="ws-row"><span class="ws-lbl">Total Wallet Balance (all users)</span><span class="ws-val" id="walTotal">—</span></div>
+        <div class="ws-row"><span class="ws-lbl">Total Locked (72h)</span><span class="ws-val" style="color:var(--amb)" id="walLocked">—</span></div>
+        <div class="ws-row"><span class="ws-lbl">Pending Withdrawals</span><span class="ws-val" style="color:var(--red)" id="walPendingWR">—</span></div>
+      </div>
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Manual Wallet Credit</div></div>
+        <div style="padding:14px">
+          <div class="fg"><label class="lbl">Select Order (delivered)</label>
+            <select class="inp" id="walOrderSel"><option value="">Select order to credit margin…</option></select>
+          </div>
+          <div id="walOrderInfo" style="font-size:12px;color:var(--sub);margin-bottom:12px"></div>
+          <button class="btn btn-g btn-w" onclick="creditWalletManual()">Credit Margin to Wallet</button>
+        </div>
+      </div>
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Per-user Wallet</div><input class="ts" placeholder="Search…" oninput="filterList('wallets',this.value)"></div>
+        <div class="data-list" id="walletsList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- HELPDESK -->
+    <div class="pg" id="pg-helpdesk">
+      <div class="tcard">
+        <div class="tch">
+          <div class="tcttl">Help Desk</div>
+          <select class="ts" style="max-width:120px" onchange="hdFilter=this.value;renderHD()">
+            <option value="all">All</option><option value="open" selected>Open</option>
+            <option value="callback">Callbacks</option><option value="resolved">Resolved</option>
+          </select>
+        </div>
+        <div class="data-list" id="hdList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- CALL TASKS -->
+    <div class="pg" id="pg-calltasks">
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Call Tasks</div></div>
+        <div class="data-list" id="ctList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div class="pg" id="pg-subscriptions">
+      <div class="stl">Subscription Plans <div class="stl-r"><button class="btn btn-a btn-sm" onclick="openPlanMod()">Edit Plans</button></div></div>
+      <div id="plansCards"></div>
+      <div class="tcard" style="margin-top:12px">
+        <div class="tch"><div class="tcttl">Active Subscribers</div></div>
+        <div class="data-list" id="subsList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- STAFF -->
+    <div class="pg" id="pg-staff">
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Staff Members</div><button class="btn btn-a btn-sm" onclick="openStaffMod()">+ Add</button></div>
+        <div class="data-list" id="staffList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="pg" id="pg-settings">
+      <div class="tcard">
+        <div class="tch"><div class="tcttl">Settings</div></div>
+        <div style="padding:14px">
+          <div class="fg"><label class="lbl">Call Confirm Fee (₹)</label><input class="inp" type="number" id="setCF" value="5" inputmode="numeric"></div>
+          <div class="fg"><label class="lbl">Call + Recording Fee (₹)</label><input class="inp" type="number" id="setCFR" value="7" inputmode="numeric"></div>
+          <div class="fg"><label class="lbl">Return Policy (days)</label><input class="inp" type="number" id="setRet" value="4" inputmode="numeric"></div>
+          <div class="trow"><span class="tlbl">COD Available</span><div class="tog on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="trow"><span class="tlbl">Require Unboxing Video</span><div class="tog on" onclick="this.classList.toggle('on')"></div></div>
+          <div class="trow"><span class="tlbl">Maintenance Mode</span><div class="tog" onclick="this.classList.toggle('on')"></div></div>
+          <button class="btn btn-a btn-w" onclick="saveSettings()" style="margin-top:14px">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div class="ovl" id="prodMod">
+  <div class="mdl">
+    <div class="mdl-drag"></div>
+    <div class="mh"><div class="mttl" id="prodModTtl">Add Product</div><div class="mx" onclick="closeMod('prodMod')">✕</div></div>
+    <div class="mb">
+      <input type="hidden" id="editId">
+      <div class="fg2">
+        <div class="fg full"><label class="lbl">Product Name *</label><input class="inp" id="pName" placeholder="Name"></div>
+        <div class="fg full"><label class="lbl">Description</label><textarea class="inp" id="pDesc" placeholder="Description…"></textarea></div>
+        <div class="fg"><label class="lbl">MRP ₹ *</label><input class="inp" type="number" id="pPrice" placeholder="0" inputmode="decimal"></div>
+        <div class="fg"><label class="lbl">COD Charge ₹</label><input class="inp" type="number" id="pCOD" placeholder="0" inputmode="decimal"></div>
+        <div class="fg"><label class="lbl">Category</label><select class="inp" id="pCat"><option value="">Select…</option></select></div>
+        <div class="fg"><label class="lbl">Stock</label><input class="inp" type="number" id="pStock" placeholder="0" inputmode="numeric"></div>
+        <div class="fg full"><label class="lbl">Product Image</label>
+          <div class="uarea" id="imgPrevArea"><input type="file" accept="image/*" onchange="handleProdImg(event)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p>Tap to upload image</p></div>
+          <div class="uprog"><div class="uprog-fill" id="uprogFill" style="width:0%"></div></div>
+          <div style="font-size:10px;color:var(--mut);margin-top:5px" id="uprogStatus"></div>
+          <div class="fg" style="margin-top:8px"><label class="lbl">Or paste URL</label><input class="inp" id="pImgUrl" placeholder="https://…" oninput="previewImgUrl(this.value)"></div>
+        </div>
+        <div class="fg full">
+          <div class="trow"><span class="tlbl">Active</span><div class="tog on" id="pActive" onclick="this.classList.toggle('on')"></div></div>
+          <div class="trow"><span class="tlbl">COD Available</span><div class="tog on" id="pCODA" onclick="this.classList.toggle('on')"></div></div>
+        </div>
+      </div>
+      <div class="mf"><button class="btn btn-s" onclick="closeMod('prodMod')">Cancel</button><button class="btn btn-a" onclick="saveProd()" id="saveProdBtn">Save Product</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- KYC VIEW MODAL -->
+<div class="ovl" id="kycMod"><div class="mdl"><div class="mdl-drag"></div><div class="mh"><div class="mttl">KYC Details</div><div class="mx" onclick="closeMod('kycMod')">✕</div></div><div class="mb" id="kycModBody"></div></div></div>
+
+<!-- HELPDESK MODAL -->
+<div class="ovl" id="hdMod"><div class="mdl"><div class="mdl-drag"></div><div class="mh"><div class="mttl">Ticket</div><div class="mx" onclick="closeMod('hdMod')">✕</div></div><div class="mb" id="hdModBody"></div></div></div>
+
+<!-- CALL TASK ASSIGN MODAL -->
+<div class="ovl" id="ctMod"><div class="mdl"><div class="mdl-drag"></div><div class="mh"><div class="mttl">Assign Task</div><div class="mx" onclick="closeMod('ctMod')">✕</div></div><div class="mb" id="ctModBody"></div></div></div>
+
+<!-- CATEGORY MODAL -->
+<div class="ovl" id="catMod"><div class="mdl" style="max-width:400px"><div class="mdl-drag"></div><div class="mh"><div class="mttl">Add Category</div><div class="mx" onclick="closeMod('catMod')">✕</div></div><div class="mb"><div class="fg"><label class="lbl">Name *</label><input class="inp" id="catName" placeholder="Category Name"></div><div class="mf"><button class="btn btn-s" onclick="closeMod('catMod')">Cancel</button><button class="btn btn-a" onclick="saveCat()" style="flex:1;padding:10px">Save</button></div></div></div></div>
+
+<!-- STAFF MODAL -->
+<div class="ovl" id="staffMod"><div class="mdl"><div class="mdl-drag"></div><div class="mh"><div class="mttl">Add Staff</div><div class="mx" onclick="closeMod('staffMod')">✕</div></div><div class="mb"><div class="fg"><label class="lbl">Full Name *</label><input class="inp" id="stName" placeholder="Name"></div><div class="fg"><label class="lbl">Email *</label><input class="inp" type="email" id="stEmail" placeholder="staff@email.com"></div><div class="fg"><label class="lbl">Phone</label><input class="inp" type="tel" id="stPhone" placeholder="+91 XXXXX XXXXX"></div><div class="fg"><label class="lbl">Password *</label><input class="inp" type="password" id="stPass" placeholder="Min 8 characters"></div><div class="err" id="stErr"></div><div class="mf"><button class="btn btn-s" onclick="closeMod('staffMod')">Cancel</button><button class="btn btn-a" onclick="saveStaff()" style="flex:1;padding:10px">Add Staff</button></div></div></div></div>
+
+<!-- PLAN EDIT MODAL -->
+<div class="ovl" id="planMod"><div class="mdl"><div class="mdl-drag"></div><div class="mh"><div class="mttl">Edit Plan</div><div class="mx" onclick="closeMod('planMod')">✕</div></div><div class="mb" id="planModBody"></div></div></div>
+
+<!-- CONFIRM -->
+<div class="covl" id="confOvl"><div class="cbox"><div class="ci">⚠️</div><div class="cttl" id="confTtl">Are you sure?</div><div class="cmsg" id="confMsg">Cannot be undone.</div><div class="cbtns"><button class="btn btn-s" onclick="closeConf()">Cancel</button><button class="btn btn-d" id="confOk">Delete</button></div></div></div>
+
+<div class="tw" id="toastWrap"></div>
+
+<script>
+const SB_URL='https://szvnnkukkgqddaahrwui.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzE3MTUsImV4cCI6MjA5MjQwNzcxNX0.-13k_Yr7w4vr_8sG7dc9Vv0StQi1rFmz-O2isiXQdsY';
+const {createClient}=supabase;
+const db=createClient(SB_URL,SB_KEY);
+
+// Security
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();});
+
+// State
+let prods=[],ords=[],cats=[],users=[],kycList=[],tickets=[],callTasks=[],staffData=[],plans=[],subs=[],withdrawals=[],uploadedImgUrl='',pendDel=null;
+let kycFilter='submitted',hdFilter='open';
+
+// ── SIDEBAR ──
+function openSB(){document.getElementById('sidebar').classList.add('open');document.getElementById('sbOvl').classList.add('show');}
+function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbOvl').classList.remove('show');}
+
+// ── AUTH (24hr) ──
+async function doLogin(){
+  const email=document.getElementById('lEmail').value.trim();
+  const pass=document.getElementById('lPass').value;
+  const err=document.getElementById('lErr'),btn=document.getElementById('lBtn');
+  err.textContent='';
+  if(!email||!pass){err.textContent='Fill all fields.';return;}
+  const locked=localStorage.getItem('adm_lock');
+  if(locked&&Date.now()<parseInt(locked)){err.textContent='Locked 15min. Too many attempts.';return;}
+  btn.disabled=true;btn.innerHTML='<div style="width:14px;height:14px;border:2px solid rgba(0,0,0,.3);border-top-color:#000;border-radius:50%;animation:sp .8s linear infinite;margin:0 auto"></div>';
+  const {data,error}=await db.auth.signInWithPassword({email,password:pass});
+  btn.disabled=false;btn.textContent='Sign In';
+  if(error){
+    const a=(parseInt(localStorage.getItem('adm_att')||'0'))+1;localStorage.setItem('adm_att',a);
+    if(a>=5){localStorage.setItem('adm_lock',Date.now()+15*60000);err.textContent='Locked 15min.';}
+    else err.textContent=`Wrong credentials. ${5-a} left.`;
+    return;
+  }
+  // Check admin role
+  const {data:prof}=await db.from('users_profile').select('role').eq('id',data.user.id).single();
+  if(prof&&!['admin','super_admin'].includes(prof.role)){await db.auth.signOut();err.textContent='Not an admin account.';return;}
+  localStorage.removeItem('adm_att');localStorage.removeItem('adm_lock');
+  localStorage.setItem('adm_login_time',Date.now());
+  admitAdmin(data.user);
+}
+async function doLogout(){await db.auth.signOut();localStorage.removeItem('adm_login_time');location.reload();}
+function admitAdmin(user){
+  document.getElementById('loginScr').style.display='none';
+  document.getElementById('app').classList.add('show');
+  const n=user.email.split('@')[0];
+  document.getElementById('adminName').textContent=n;
+  document.getElementById('adminAv').textContent=n.charAt(0).toUpperCase();
+  startTimer();loadAll();
+}
+function startTimer(){
+  const lt=parseInt(localStorage.getItem('adm_login_time')||'0');
+  const tel=document.getElementById('lTimer');
+  setInterval(()=>{
+    const rem=24*3600000-(Date.now()-lt);
+    if(rem<=0){toast('Session expired.','info');setTimeout(doLogout,2000);return;}
+    const h=Math.floor(rem/3600000),m=Math.floor((rem%3600000)/60000);
+    if(tel)tel.textContent=`Session: ${h}h ${m}m left`;
+  },60000);
+}
+(async()=>{
+  const {data:{session}}=await db.auth.getSession();
+  if(session?.user){const lt=localStorage.getItem('adm_login_time');if(lt&&Date.now()-parseInt(lt)<24*3600000)admitAdmin(session.user);}
+})();
+
+// ── LOAD ALL ──
+async function loadAll(){await Promise.all([loadProds(),loadOrds(),loadCats(),loadUsers(),loadKYC(),loadTickets(),loadCallTasks(),loadStaff(),loadPlans(),loadSubs(),loadWithdrawals()]);renderDash();}
+
+async function loadProds(){try{const {data}=await db.from('products').select('*').order('created_at',{ascending:false});prods=data||[];}catch{prods=[];}renderProds();updateCatSel();}
+async function loadOrds(){try{const {data}=await db.from('orders').select('*').order('created_at',{ascending:false});ords=data||[];}catch{ords=[];}renderOrds();loadWalletOrders();}
+async function loadCats(){try{const {data}=await db.from('categories').select('*').order('name');cats=data||[];}catch{cats=[];}renderCats();updateCatSel();}
+async function loadUsers(){try{const {data}=await db.from('users_profile').select('*').order('created_at',{ascending:false});users=data||[];}catch{users=[];}renderResellers();renderWallets();}
+async function loadKYC(){try{const {data}=await db.from('kyc_submissions').select('*').order('submitted_at',{ascending:false});kycList=data||[];}catch{kycList=[];}renderKYC();const p=kycList.filter(k=>k.status==='submitted'||k.status==='pending').length;const b=document.getElementById('kycBadge');b.style.display=p>0?'':'none';b.textContent=p;document.getElementById('adKYC').textContent=p;}
+async function loadTickets(){try{const {data}=await db.from('helpdesk_tickets').select('*').order('created_at',{ascending:false});tickets=data||[];}catch{tickets=[];}renderHD();const o=tickets.filter(t=>t.status==='open').length;const b=document.getElementById('hdBadge');b.style.display=o>0?'':'none';b.textContent=o;}
+async function loadCallTasks(){try{const {data}=await db.from('call_tasks').select('*').order('created_at',{ascending:false});callTasks=data||[];}catch{callTasks=[];}renderCT();const u=callTasks.filter(t=>t.status==='unassigned').length;const b=document.getElementById('ctBadge');b.style.display=u>0?'':'none';b.textContent=u;}
+async function loadStaff(){try{const {data}=await db.from('staff').select('*').order('created_at',{ascending:false});staffData=data||[];}catch{staffData=[];}renderStaff();}
+async function loadPlans(){try{const {data}=await db.from('subscription_plans').select('*').order('price');plans=data||[];}catch{plans=[];}renderPlans();}
+async function loadSubs(){try{const {data}=await db.from('user_subscriptions').select('*').order('created_at',{ascending:false});subs=data||[];}catch{subs=[];}renderSubs();}
+async function loadWithdrawals(){try{const {data}=await db.from('withdrawal_requests').select('*').order('created_at',{ascending:false});withdrawals=data||[];}catch{withdrawals=[];}renderWR();const p=withdrawals.filter(w=>w.status==='pending').length;const b=document.getElementById('wrBadge');b.style.display=p>0?'':'none';b.textContent=p;}
+
+// ── DASHBOARD ──
+function renderDash(){
+  document.getElementById('adProd').textContent=prods.filter(p=>p.active).length;
+  document.getElementById('adOrd').textContent=ords.length;
+  document.getElementById('adRev').textContent='₹'+ords.reduce((s,o)=>s+(o.total_paid||0),0).toLocaleString();
+  document.getElementById('adUsers').textContent=users.length;
+  const totalWal=users.reduce((s,u)=>s+(parseFloat(u.wallet_balance)||0),0);
+  document.getElementById('adWal').textContent='₹'+totalWal.toLocaleString();
+  // Recent orders
+  const dashOrds=document.getElementById('dashOrds');
+  dashOrds.innerHTML=ords.length?ords.slice(0,5).map(o=>`
+    <div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${o.product_name}<small>#${String(o.id).substring(0,8).toUpperCase()}</small></div>
+        <div class="di-right"><div class="di-amt">₹${(o.total_paid||0).toLocaleString()}</div><span class="badge b-${stcls(o.status)}">${(o.status||'pending').toUpperCase()}</span></div>
+      </div>
+    </div>`).join(''):'<div class="empty"><p>No orders yet</p></div>';
+  // Pending withdrawals in dash
+  const dwr=document.getElementById('dashWR');
+  const pwr=withdrawals.filter(w=>w.status==='pending');
+  dwr.innerHTML=pwr.length?pwr.slice(0,3).map(w=>{const u=users.find(x=>x.id===w.user_id);return `<div class="data-item"><div class="di-top"><div class="di-main">${u?.full_name||'—'}<small>₹${w.amount} · ${new Date(w.created_at).toLocaleDateString('en-IN')}</small></div><div class="di-right"><button class="btn btn-g btn-sm" onclick="showPg('withdrawals',null)">Review</button></div></div></div>`;}):  '<div class="empty"><p>No pending withdrawals</p></div>';
+}
+function stcls(s){return{paid:'a',pending:'p',shipped:'s',delivered:'d',cancelled:'r',processing:'s'}[s]||'p';}
+
+// ── PRODUCTS ──
+function renderProds(list){
+  const d=list||prods;
+  document.getElementById('prodsList').innerHTML=d.length?d.map(p=>`
+    <div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${p.name}<small>${p.category||'—'} · ₹${p.price}</small></div>
+        <div class="di-right"><span class="badge ${p.active?'b-a':'b-i'}">${p.active?'ON':'OFF'}</span><div style="font-family:'Bebas Neue';font-size:16px;color:var(--ora)">${p.cod_charge?'COD +₹'+p.cod_charge:''}</div></div>
+      </div>
+      <div class="di-btns"><button class="btn btn-t btn-sm" onclick="editProd(${p.id})">Edit</button><button class="btn btn-d btn-sm" onclick="confirmDel(${p.id},'product')">Delete</button></div>
+    </div>`).join(''):'<div class="empty"><p>No products</p></div>';
+}
+
+// ── ORDERS ──
+function renderOrds(list){
+  const d=list||ords;
+  document.getElementById('ordsList').innerHTML=d.length?d.map(o=>`
+    <div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${o.product_name}<small>#${String(o.id).substring(0,8).toUpperCase()} · ${new Date(o.created_at).toLocaleDateString('en-IN')}</small></div>
+        <div class="di-right"><div class="di-amt">₹${(o.total_paid||0).toLocaleString()}</div></div>
+      </div>
+      <div class="di-meta">
+        ${o.cod_count?`<div class="di-pill">COD:${o.cod_count}</div>`:''}
+        ${o.prepaid_count?`<div class="di-pill">Pre:${o.prepaid_count}</div>`:''}
+        ${o.wallet_used>0?`<div class="di-pill" style="color:var(--tel)">Wal:₹${o.wallet_used}</div>`:''}
+        ${o.call_confirmation?`<div class="di-pill" style="color:var(--blu)">Call</div>`:''}
+        ${o.is_manual?`<div class="di-pill" style="color:var(--amb)">Manual</div>`:''}
+        ${o.margin_credited?`<div class="di-pill" style="color:var(--grn)">₹${o.margin_amount} credited</div>`:''}
+      </div>
+      <div class="di-btns">
+        <select class="ssel" onchange="updateOrdStatus('${o.id}',this.value)">
+          <option value="pending" ${o.status==='pending'?'selected':''}>Pending</option>
+          <option value="paid" ${o.status==='paid'?'selected':''}>Paid</option>
+          <option value="processing" ${o.status==='processing'?'selected':''}>Processing</option>
+          <option value="shipped" ${o.status==='shipped'?'selected':''}>Shipped</option>
+          <option value="delivered" ${o.status==='delivered'?'selected':''}>Delivered</option>
+          <option value="cancelled" ${o.status==='cancelled'?'selected':''}>Cancelled</option>
+        </select>
+        <button class="btn btn-d btn-sm" onclick="confirmDel('${o.id}','order')">Del</button>
+      </div>
+    </div>`).join(''):'<div class="empty"><p>No orders</p></div>';
+}
+
+async function updateOrdStatus(id,status){
+  try{
+    await db.from('orders').update({status}).eq('id',id);
+    const o=ords.find(x=>String(x.id)===String(id));if(o)o.status=status;
+    toast('Status updated','success');
+    // If delivered and margin not credited — prompt
+    if(status==='delivered'&&o&&!o.margin_credited&&o.seller_price&&o.product_price){
+      const margin=(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0));
+      if(margin>0){
+        const doCredit=confirm(`Order delivered! Credit ₹${margin.toLocaleString()} margin to reseller wallet?`);
+        if(doCredit)await creditMargin(id,margin,o.user_id);
+      }
+    }
+  }catch{toast('Update failed','error');}
+}
+
+async function creditMargin(orderId,margin,userId){
+  try{
+    const now=new Date();
+    const unlockAt=new Date(now.getTime()+72*3600000).toISOString();
+    // Get current wallet
+    const {data:prof}=await db.from('users_profile').select('wallet_locked').eq('id',userId).single();
+    const newLocked=(parseFloat(prof?.wallet_locked)||0)+margin;
+    // Update user wallet locked
+    await db.from('users_profile').update({wallet_locked:newLocked}).eq('id',userId);
+    // Update order
+    await db.from('orders').update({margin_credited:true,margin_amount:margin,margin_credited_at:now.toISOString(),margin_unlock_at:unlockAt}).eq('id',orderId);
+    // Add wallet transaction
+    await db.from('wallet_transactions').insert({user_id:userId,order_id:orderId,type:'locked',amount:margin,locked_until:unlockAt,note:`Margin from order — unlocks ${new Date(unlockAt).toLocaleString('en-IN')}`,created_at:now.toISOString()});
+    const o=ords.find(x=>String(x.id)===String(orderId));if(o){o.margin_credited=true;o.margin_amount=margin;}
+    toast(`₹${margin.toLocaleString()} credited to wallet (72h locked)!`,'success');
+    renderOrds();
+  }catch(e){toast('Credit failed: '+e.message,'error');}
+}
+
+// ── WALLET MGMT ──
+function renderWallets(list){
+  const d=list||users;
+  document.getElementById('walletsList').innerHTML=d.length?d.map(u=>`
+    <div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${u.full_name||u.email}<small>${u.email}</small></div>
+        <div class="di-right"><div style="font-family:'Bebas Neue';font-size:18px;color:var(--tel)">₹${parseFloat(u.wallet_balance||0).toLocaleString()}</div><div style="font-size:9px;color:var(--mut)">Locked: ₹${parseFloat(u.wallet_locked||0).toLocaleString()}</div></div>
+      </div>
+    </div>`).join(''):'<div class="empty"><p>No users</p></div>';
+  // Summary
+  const total=users.reduce((s,u)=>s+(parseFloat(u.wallet_balance)||0),0);
+  const locked=users.reduce((s,u)=>s+(parseFloat(u.wallet_locked)||0),0);
+  const pendWR=withdrawals.filter(w=>w.status==='pending').reduce((s,w)=>s+(parseFloat(w.amount)||0),0);
+  document.getElementById('walTotal').textContent='₹'+total.toLocaleString();
+  document.getElementById('walLocked').textContent='₹'+locked.toLocaleString();
+  document.getElementById('walPendingWR').textContent='₹'+pendWR.toLocaleString();
+}
+function loadWalletOrders(){
+  const sel=document.getElementById('walOrderSel');if(!sel)return;
+  const eligible=ords.filter(o=>o.status==='delivered'&&!o.margin_credited&&o.seller_price&&o.product_price&&(o.seller_price-o.product_price)>0);
+  sel.innerHTML='<option value="">Select order to credit margin…</option>'+eligible.map(o=>{const margin=(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0));return `<option value="${o.id}" data-margin="${margin}" data-uid="${o.user_id}">${o.product_name} — ₹${margin.toLocaleString()} margin</option>`;}).join('');
+  sel.onchange=()=>{
+    const opt=sel.options[sel.selectedIndex];
+    const info=document.getElementById('walOrderInfo');
+    if(opt.value){const u=users.find(x=>x.id===opt.dataset.uid);info.textContent=`Reseller: ${u?.full_name||'—'} · Margin: ₹${parseFloat(opt.dataset.margin).toLocaleString()} · Will be locked 72hrs`;}
+    else info.textContent='';
+  };
+}
+async function creditWalletManual(){
+  const sel=document.getElementById('walOrderSel');
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt.value){toast('Select an order','error');return;}
+  if(!confirm(`Credit ₹${parseFloat(opt.dataset.margin).toLocaleString()} to reseller wallet (72h lock)?`))return;
+  await creditMargin(opt.value,parseFloat(opt.dataset.margin),opt.dataset.uid);
+  await loadOrds();await loadUsers();loadWalletOrders();renderWallets();
+}
+
+// ── WITHDRAWALS ──
+function renderWR(){
+  const el=document.getElementById('wrList');
+  if(!withdrawals.length){el.innerHTML='<div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5"/></svg><p>No withdrawal requests</p></div>';return;}
+  el.innerHTML=withdrawals.map(w=>{
+    const u=users.find(x=>x.id===w.user_id);
+    return `<div class="wr-card">
+      <div class="wrc-top">
+        <div>
+          <div class="wrc-name">${u?.full_name||'—'}</div>
+          <div style="font-size:10px;color:var(--mut)">${new Date(w.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+        <div><div class="wrc-amt">₹${parseFloat(w.amount).toLocaleString()}</div><span class="badge b-${w.status==='pending'?'p':w.status==='paid'?'a':'r'}">${w.status.toUpperCase()}</span></div>
+      </div>
+      <div class="wrc-bank">
+        ${w.account_holder_name?`<b>Name:</b> ${w.account_holder_name}<br>`:''}
+        ${w.bank_name?`<b>Bank:</b> ${w.bank_name}<br>`:''}
+        ${w.account_number?`<b>A/C:</b> ${w.account_number}<br>`:''}
+        ${w.ifsc_code?`<b>IFSC:</b> ${w.ifsc_code}<br>`:''}
+        ${w.upi?`<b>UPI:</b> ${w.upi}`:''}
+      </div>
+      ${w.status==='pending'?`<div class="wrc-btns">
+        <button class="btn btn-g btn-sm" onclick="resolveWR('${w.id}','paid')">✓ Mark Paid</button>
+        <button class="btn btn-d btn-sm" onclick="resolveWR('${w.id}','rejected')">✗ Reject</button>
+      </div>`:''}
+      ${w.admin_note?`<div style="font-size:11px;color:var(--sub);margin-top:8px">Note: ${w.admin_note}</div>`:''}
+    </div>`;
+  }).join('');
+}
+async function resolveWR(id,status){
+  const note=status==='rejected'?prompt('Rejection reason (optional):'):'';
+  try{
+    await db.from('withdrawal_requests').update({status,admin_note:note||null,paid_at:status==='paid'?new Date().toISOString():null}).eq('id',id);
+    const w=withdrawals.find(x=>x.id===id);if(w)w.status=status;
+    // If rejected, refund wallet
+    if(status==='rejected'&&w){
+      const {data:prof}=await db.from('users_profile').select('wallet_balance').eq('id',w.user_id).single();
+      const newBal=(parseFloat(prof?.wallet_balance)||0)+parseFloat(w.amount);
+      await db.from('users_profile').update({wallet_balance:newBal}).eq('id',w.user_id);
+      await db.from('wallet_transactions').insert({user_id:w.user_id,type:'credit',amount:w.amount,balance_after:newBal,note:'Withdrawal rejected — refunded',created_at:new Date().toISOString()});
+    }
+    toast(status==='paid'?'Marked as paid!':'Rejected & refunded','success');
+    renderWR();renderDash();await loadUsers();renderWallets();
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+
+// ── CATEGORIES ──
+function renderCats(){
+  document.getElementById('catsList').innerHTML=cats.length?cats.map(c=>`
+    <div class="data-item">
+      <div class="di-top"><div class="di-main">${c.name}<small>${c.slug||''}</small></div><div class="di-right"><button class="btn btn-d btn-sm" onclick="confirmDel(${c.id},'category')">Delete</button></div></div>
+    </div>`).join(''):'<div class="empty"><p>No categories</p></div>';
+}
+function updateCatSel(){const s=document.getElementById('pCat');if(!s)return;s.innerHTML='<option value="">Select…</option>'+cats.map(c=>`<option value="${c.name.toLowerCase()}">${c.name}</option>`).join('');}
+
+// ── RESELLERS ──
+function renderResellers(list){
+  const d=list||users;
+  document.getElementById('resList').innerHTML=d.length?d.map(u=>{
+    const uo=ords.filter(o=>o.user_id===u.id);const up=uo.reduce((s,o)=>s+(o.total_paid||0),0);
+    return `<div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${u.full_name||'—'}<small>${u.email}</small></div>
+        <div class="di-right"><span class="badge b-${u.kyc_status==='approved'?'a':u.kyc_status==='submitted'?'p':'i'}">${(u.kyc_status||'pending').toUpperCase()}</span></div>
+      </div>
+      <div class="di-meta">
+        <div class="di-pill">Orders: ${uo.length}</div>
+        <div class="di-pill">Paid: ₹${up.toLocaleString()}</div>
+        <div class="di-pill" style="color:var(--tel)">Wallet: ₹${parseFloat(u.wallet_balance||0).toLocaleString()}</div>
+        ${u.subscription_plan&&u.subscription_plan!=='none'?`<div class="di-pill" style="color:var(--grn)">${u.subscription_plan}</div>`:''}
+      </div>
+      ${u.upi||u.account_number?`<div style="font-size:10px;color:var(--sub);padding-top:5px">${u.upi?'UPI: '+u.upi:''} ${u.account_number?'A/C: '+u.account_number:''} ${u.ifsc_code?'IFSC: '+u.ifsc_code:''}</div>`:''}
+    </div>`;
+  }).join(''):'<div class="empty"><p>No resellers</p></div>';
+}
+
+// ── KYC ──
+function renderKYC(){
+  const d=(kycFilter==='all'?kycList:kycList.filter(k=>k.status===kycFilter));
+  document.getElementById('kycList').innerHTML=d.length?d.map(k=>{
+    const u=users.find(x=>x.id===k.user_id);
+    return `<div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${k.full_name||'—'}<small>${u?.email||'—'} · PAN: ${k.pan_number||'—'}</small></div>
+        <div class="di-right"><span class="badge b-${k.status==='approved'?'a':k.status==='rejected'?'r':'p'}">${k.status.toUpperCase()}</span></div>
+      </div>
+      <div class="di-meta">
+        ${k.ai_pan_valid?'<div class="di-pill" style="color:var(--grn)">✓ PAN valid</div>':'<div class="di-pill" style="color:var(--red)">✗ PAN</div>'}
+        ${k.mobile_verified?'<div class="di-pill" style="color:var(--grn)">✓ Phone</div>':'<div class="di-pill">Phone?</div>'}
+        ${k.ai_face_match?`<div class="di-pill" style="color:var(--grn)">✓ Face ${k.ai_face_score?k.ai_face_score.toFixed(0)+'%':''}</div>`:`<div class="di-pill" style="color:var(--amb)">Face ${k.ai_face_score?k.ai_face_score.toFixed(0)+'%':''}</div>`}
+        <div class="di-pill">${new Date(k.submitted_at||Date.now()).toLocaleDateString('en-IN')}</div>
+      </div>
+      <div class="di-btns">
+        <button class="btn btn-b btn-sm" onclick="viewKYC('${k.id}')">View</button>
+        ${k.status!=='approved'?`<button class="btn btn-g btn-sm" onclick="reviewKYC('${k.id}','approved')">✓ Approve</button>`:''}
+        ${k.status!=='rejected'?`<button class="btn btn-d btn-sm" onclick="reviewKYC('${k.id}','rejected')">✗ Reject</button>`:''}
+      </div>
+    </div>`;
+  }).join(''):'<div class="empty"><p>No KYC applications</p></div>';
+}
+
+function viewKYC(id){
+  const k=kycList.find(x=>x.id===id);if(!k)return;
+  document.getElementById('kycModBody').innerHTML=`
+    <div style="margin-bottom:12px">
+      <div class="ai-chip ${k.ai_pan_valid?'pass':'fail'}">PAN: ${k.ai_pan_valid?'✓ Valid':'✗ Invalid'}</div>
+      <div class="ai-chip ${k.mobile_verified?'pass':'warn'}">Phone: ${k.mobile_verified?'✓ Verified':'Not verified'}</div>
+      <div class="ai-chip ${k.ai_face_match?'pass':'warn'}">Face: ${k.ai_face_score?k.ai_face_score.toFixed(0)+'%':' —'} ${k.ai_face_match?'✓':'?'}</div>
+      ${k.ai_notes?`<div class="ai-chip warn">ℹ️ ${k.ai_notes}</div>`:''}
+    </div>
+    <div class="kd-row"><span class="kd-l">Full Name</span><span class="kd-v">${k.full_name||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">DOB</span><span class="kd-v">${k.date_of_birth||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">Mobile</span><span class="kd-v">${k.mobile||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">PAN</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.pan_number||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">Aadhaar</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.aadhaar_number||'Not provided'}</span></div>
+    <div class="kd-row"><span class="kd-l">Bank</span><span class="kd-v">${k.bank_holder_name||'—'} · ${k.bank_name||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">Account</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.bank_account_number||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">IFSC</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.bank_ifsc||'—'}</span></div>
+    ${k.pan_photo_url?`<div class="kd-row"><span class="kd-l">PAN Photo</span><span class="kd-v"><a href="${getSBUrl('kyc-documents',k.pan_photo_url)}" target="_blank" style="color:var(--amb)">View ↗</a></span></div>`:''}
+    ${k.selfie_url?`<div class="kd-row"><span class="kd-l">Selfie</span><span class="kd-v"><a href="${getSBUrl('kyc-documents',k.selfie_url)}" target="_blank" style="color:var(--amb)">View ↗</a></span></div>`:''}
+    <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--brd)">
+      ${k.status!=='approved'?`<button class="btn btn-g" style="flex:1" onclick="reviewKYC('${k.id}','approved')">✓ Approve</button>`:''}
+      ${k.status!=='rejected'?`<button class="btn btn-d" style="flex:1" onclick="reviewKYC('${k.id}','rejected')">✗ Reject</button>`:''}
+    </div>
+    ${k.status!=='approved'?`<div class="fg" style="margin-top:10px"><label class="lbl">Admin Note</label><input class="inp" id="kycNote" placeholder="Rejection reason…"></div>`:''}`;
+  document.getElementById('kycMod').classList.add('open');
+}
+function getSBUrl(bucket,path){const {data}=db.storage.from(bucket).getPublicUrl(path);return data?.publicUrl||'#';}
+async function reviewKYC(id,status){
+  const note=document.getElementById('kycNote')?.value||'';
+  try{
+    await db.from('kyc_submissions').update({status,admin_note:note,reviewed_at:new Date().toISOString()}).eq('id',id);
+    const k=kycList.find(x=>x.id===id);
+    if(k){k.status=status;if(k.user_id)await db.from('users_profile').update({kyc_status:status}).eq('id',k.user_id);}
+    closeMod('kycMod');toast(`KYC ${status}!`,status==='approved'?'success':'info');await loadKYC();
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+
+// ── HELPDESK ──
+function renderHD(){
+  const d=hdFilter==='all'?tickets:hdFilter==='callback'?tickets.filter(t=>t.type==='callback'):tickets.filter(t=>t.status===hdFilter);
+  document.getElementById('hdList').innerHTML=d.length?d.map(t=>`
+    <div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${t.name||'—'}<small>${t.type==='callback'?`📞 ${t.callback_date||''} ${t.callback_time||''}`:`✉️ ${t.subject||'—'}`}</small></div>
+        <div class="di-right"><span class="badge b-${t.status==='open'?'p':t.status==='resolved'?'a':'i'}">${t.status.toUpperCase()}</span></div>
+      </div>
+      <div class="di-meta"><div class="di-pill">${t.phone||t.email||'—'}</div><div class="di-pill">${new Date(t.created_at).toLocaleDateString('en-IN')}</div></div>
+      <div class="di-btns"><button class="btn btn-b btn-sm" onclick="viewTicket('${t.id}')">View</button>${t.status!=='resolved'?`<button class="btn btn-g btn-sm" onclick="resolveTicket('${t.id}')">Resolve</button>`:''}</div>
+    </div>`).join(''):'<div class="empty"><p>No tickets</p></div>';
+}
+function viewTicket(id){
+  const t=tickets.find(x=>x.id===id);if(!t)return;
+  document.getElementById('hdModBody').innerHTML=`
+    <div style="font-size:11px;color:var(--sub);margin-bottom:8px">${t.type.toUpperCase()} · ${new Date(t.created_at).toLocaleString('en-IN')}</div>
+    <div style="font-weight:600;font-size:13px;margin-bottom:8px">${t.subject||'Callback Request'}</div>
+    <div style="background:var(--sur);border-radius:var(--rs);padding:11px;font-size:12px;color:var(--sub);line-height:1.7;margin-bottom:12px">${t.message||'—'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;margin-bottom:12px">
+      <div><div style="color:var(--mut);font-size:9px;font-family:'JetBrains Mono'">FROM</div><div>${t.name||'—'}</div></div>
+      <div><div style="color:var(--mut);font-size:9px;font-family:'JetBrains Mono'">CONTACT</div><div>${t.phone||t.email||'—'}</div></div>
+      ${t.type==='callback'?`<div><div style="color:var(--mut);font-size:9px;font-family:'JetBrains Mono'">DATE</div><div>${t.callback_date||'—'}</div></div><div><div style="color:var(--mut);font-size:9px;font-family:'JetBrains Mono'">TIME</div><div>${t.callback_time||'—'}</div></div>`:''}
+    </div>
+    <div class="fg"><label class="lbl">Reply / Note</label><textarea class="inp" id="hdReply" placeholder="Admin reply…">${t.admin_reply||''}</textarea></div>
+    <div class="mf">
+      <button class="btn btn-s" onclick="closeMod('hdMod')">Close</button>
+      <button class="btn btn-t" onclick="resolveTicket('${t.id}')">Resolve</button>
+      <button class="btn btn-a" onclick="saveHDReply('${t.id}')">Save</button>
+    </div>`;
+  document.getElementById('hdMod').classList.add('open');
+}
+async function saveHDReply(id){
+  const r=document.getElementById('hdReply')?.value;
+  try{await db.from('helpdesk_tickets').update({admin_reply:r}).eq('id',id);const t=tickets.find(x=>x.id===id);if(t)t.admin_reply=r;toast('Reply saved','success');}
+  catch{toast('Failed','error');}
+}
+async function resolveTicket(id){
+  try{await db.from('helpdesk_tickets').update({status:'resolved',resolved_at:new Date().toISOString()}).eq('id',id);await loadTickets();closeMod('hdMod');toast('Resolved','success');}
+  catch{toast('Failed','error');}
+}
+
+// ── CALL TASKS ──
+function renderCT(){
+  document.getElementById('ctList').innerHTML=callTasks.length?callTasks.map(ct=>{
+    const o=ords.find(x=>x.id===ct.order_id);
+    const s=staffData.find(x=>x.id===ct.assigned_to);
+    return `<div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${o?.product_name||'—'}<small>#${String(ct.order_id||'').substring(0,8).toUpperCase()}</small></div>
+        <div class="di-right"><span class="badge b-${ct.status==='completed'?'a':ct.status==='assigned'?'s':'p'}">${ct.status.toUpperCase()}</span></div>
+      </div>
+      <div class="di-meta">
+        <div class="di-pill">${o?.customer_name||'—'}: ${o?.customer_phone||'—'}</div>
+        ${o?.call_recording?'<div class="di-pill" style="color:var(--blu)">Rec. Required</div>':''}
+        <div class="di-pill">${s?s.name:'Unassigned'}</div>
+      </div>
+      ${ct.status==='completed'?`<div style="font-size:11px;padding:8px;background:var(--sur);border-radius:var(--rs);margin-top:6px"><b style="color:${ct.result==='confirmed'?'var(--grn)':'var(--red)'}">${ct.result?.toUpperCase()||'—'}</b> · ${ct.call_notes||'—'} ${ct.recording_url?`<a href="${getSBUrl('call-recordings',ct.recording_url)}" target="_blank" style="color:var(--amb)">▶ Recording</a>`:''}</div>`:''}
+      ${ct.status==='unassigned'?`<div class="di-btns"><button class="btn btn-a btn-sm" onclick="openAssignTask('${ct.id}')">Assign Staff</button></div>`:''}
+    </div>`;
+  }).join(''):'<div class="empty"><p>No call tasks</p></div>';
+}
+function openAssignTask(taskId){
+  document.getElementById('ctModBody').innerHTML=`
+    <div class="fg"><label class="lbl">Assign to Staff</label>
+      <select class="inp" id="assignSel">${staffData.filter(s=>s.active).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}</select>
+    </div>
+    <div class="mf"><button class="btn btn-s" onclick="closeMod('ctMod')">Cancel</button><button class="btn btn-a" style="flex:1" onclick="assignTask('${taskId}')">Assign</button></div>`;
   document.getElementById('ctMod').classList.add('open');
+}
+async function assignTask(taskId){
+  const sid=document.getElementById('assignSel')?.value;
+  if(!sid){toast('Select staff','error');return;}
+  try{await db.from('call_tasks').update({assigned_to:sid,status:'assigned'}).eq('id',taskId);closeMod('ctMod');toast('Assigned!','success');await loadCallTasks();}
+  catch{toast('Failed','error');}
 }
 
 // ── SUBSCRIPTIONS ──
 function renderPlans(){
-  document.getElementById('plansT').innerHTML=plans.length
-    ?plans.map(p=>{
-        const active=subs.filter(s=>s.plan_id===p.id&&s.status==='active').length;
-        const rev=active*p.price;
-        return `<tr>
-          <td style="font-weight:500">${p.name}</td>
-          <td style="font-family:'Bebas Neue';font-size:16px">₹${p.price}/mo</td>
-          <td style="font-family:'Bebas Neue';font-size:16px">${active}</td>
-          <td style="font-family:'Bebas Neue';font-size:16px">₹${rev.toLocaleString()}/mo</td>
-          <td><span class="badge ${p.active?'b-a':'b-i'}">${p.active?'ACTIVE':'OFF'}</span></td>
-          <td><button class="btn btn-t btn-sm" onclick="openPlanEdit(${p.id})">Edit</button></td>
-        </tr>`;
-      }).join('')
-    :'<tr><td colspan="6"><div class="empty-t"><p>No plans</p></div></td></tr>';
+  const el=document.getElementById('plansCards');if(!el)return;
+  el.innerHTML=plans.map(p=>{
+    const actSubs=subs.filter(s=>s.plan_id===p.id&&s.status==='active').length;
+    return `<div class="tcard" style="margin-bottom:10px"><div style="padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><div style="font-family:'Bebas Neue';font-size:17px;letter-spacing:1px">${p.name}</div><div style="font-size:11px;color:var(--sub)">₹${p.price}/mo · ${actSubs} active</div></div>
+        <span class="badge ${p.active?'b-a':'b-i'}">${p.active?'ACTIVE':'OFF'}</span>
+      </div>
+      <button class="btn btn-t btn-sm" onclick="openPlanEdit(${p.id})">Edit Plan</button>
+    </div></div>`;
+  }).join('');
 }
 function renderSubs(){
-  document.getElementById('subsT').innerHTML=subs.length
-    ?subs.map(s=>{
-        const u=users.find(x=>x.id===s.user_id);
-        const p=plans.find(x=>x.id===s.plan_id);
-        return `<tr>
-          <td style="font-weight:500">${u?.full_name||u?.email||'—'}</td>
-          <td style="font-size:11px">${p?.name||'—'}</td>
-          <td><span class="badge ${s.status==='active'?'b-a':s.status==='cancelled'?'b-r':'b-p'}">${s.status.toUpperCase()}</span></td>
-          <td style="font-size:10px;color:var(--mut)">${new Date(s.start_date||Date.now()).toLocaleDateString('en-IN')}</td>
-          <td style="font-size:10px;color:var(--mut)">${s.next_billing_date?new Date(s.next_billing_date).toLocaleDateString('en-IN'):'—'}</td>
-          <td><div class="abtns">
-            ${s.status==='active'?`<button class="btn btn-d btn-sm" onclick="cancelUserSub('${s.id}','${s.user_id}')">Cancel</button>`:''}
-          </div></td>
-        </tr>`;
-      }).join('')
-    :'<tr><td colspan="6"><div class="empty-t"><p>No subscriptions</p></div></td></tr>';
+  document.getElementById('subsList').innerHTML=subs.length?subs.map(s=>{
+    const u=users.find(x=>x.id===s.user_id);const p=plans.find(x=>x.id===s.plan_id);
+    return `<div class="data-item">
+      <div class="di-top"><div class="di-main">${u?.full_name||u?.email||'—'}<small>${p?.name||'—'}</small></div><div class="di-right"><span class="badge b-${s.status==='active'?'a':'r'}">${s.status.toUpperCase()}</span></div></div>
+      <div class="di-meta"><div class="di-pill">${new Date(s.start_date||Date.now()).toLocaleDateString('en-IN')}</div>${s.next_billing_date?`<div class="di-pill">Next: ${new Date(s.next_billing_date).toLocaleDateString('en-IN')}</div>`:''}</div>
+      ${s.status==='active'?`<div class="di-btns"><button class="btn btn-d btn-sm" onclick="cancelUserSub('${s.id}','${s.user_id}')">Cancel</button></div>`:''}
+    </div>`;
+  }).join(''):'<div class="empty"><p>No subscriptions</p></div>';
 }
 function openPlanEdit(planId){
   const p=plans.find(x=>x.id===planId);if(!p)return;
   document.getElementById('planModBody').innerHTML=`
     <div class="fg"><label class="lbl">Plan Name</label><input class="inp" id="planName" value="${p.name}"></div>
-    <div class="fg"><label class="lbl">Price (₹/month)</label><input class="inp" type="number" id="planPrice" value="${p.price}"></div>
+    <div class="fg"><label class="lbl">Price (₹/month)</label><input class="inp" type="number" id="planPrice" value="${p.price}" inputmode="decimal"></div>
     <div class="fg"><label class="lbl">Description</label><input class="inp" id="planDesc" value="${p.description||''}"></div>
     <div class="trow"><span class="tlbl">Plan Active</span><div class="tog ${p.active?'on':''}" id="planActive" onclick="this.classList.toggle('on')"></div></div>
-    <div class="mf">
-      <button class="btn btn-s" onclick="document.getElementById('planMod').classList.remove('open')">Cancel</button>
-      <button class="btn btn-a" onclick="savePlan(${planId})" style="justify-content:center">Save Plan</button>
-    </div>`;
+    <div class="mf"><button class="btn btn-s" onclick="closeMod('planMod')">Cancel</button><button class="btn btn-a" style="flex:1" onclick="savePlan(${planId})">Save</button></div>`;
   document.getElementById('planMod').classList.add('open');
 }
-async function savePlan(planId){
+function openPlanMod(){if(plans.length)openPlanEdit(plans[0].id);}
+async function savePlan(pid){
   const payload={name:document.getElementById('planName').value,price:parseFloat(document.getElementById('planPrice').value)||0,description:document.getElementById('planDesc').value,active:document.getElementById('planActive').classList.contains('on')};
-  try{
-    await db.from('subscription_plans').update(payload).eq('id',planId);
-    const i=plans.findIndex(p=>p.id===planId);if(i>-1)plans[i]={...plans[i],...payload};
-    document.getElementById('planMod').classList.remove('open');
-    toast('Plan updated!','success');renderPlans();
-  }catch{toast('Failed','error');}
+  try{await db.from('subscription_plans').update(payload).eq('id',pid);const i=plans.findIndex(p=>p.id===pid);if(i>-1)plans[i]={...plans[i],...payload};closeMod('planMod');toast('Plan updated!','success');renderPlans();}
+  catch{toast('Failed','error');}
 }
-async function cancelUserSub(subId,userId){
+async function cancelUserSub(sid,uid){
+  if(!confirm('Cancel subscription?'))return;
   try{
-    await db.from('user_subscriptions').update({status:'cancelled',cancelled_at:new Date().toISOString()}).eq('id',subId);
-    await db.from('users_profile').update({subscription_plan:'none',subscription_expiry:null}).eq('id',userId);
-    toast('Subscription cancelled','success');await loadSubs();await loadUsers();
+    await db.from('user_subscriptions').update({status:'cancelled',cancelled_at:new Date().toISOString()}).eq('id',sid);
+    await db.from('users_profile').update({subscription_plan:'none',subscription_expiry:null}).eq('id',uid);
+    toast('Cancelled','success');await loadSubs();await loadUsers();
   }catch{toast('Failed','error');}
 }
 
 // ── STAFF ──
 function renderStaff(){
-  document.getElementById('staffT').innerHTML=staffList.length
-    ?staffList.map(s=>{
-        const done=callTasks.filter(t=>t.assigned_to===s.id&&t.status==='completed').length;
-        return `<tr>
-          <td style="font-weight:500">${s.name}</td>
-          <td style="font-size:10px;font-family:'JetBrains Mono';color:var(--sub)">${s.email}</td>
-          <td style="font-size:11px">${s.phone||'—'}</td>
-          <td style="font-family:'Bebas Neue';font-size:16px">${done}</td>
-          <td><span class="badge ${s.active?'b-a':'b-i'}">${s.active?'ACTIVE':'OFF'}</span></td>
-          <td><div class="abtns">
-            <button class="btn ${s.active?'btn-d':'btn-t'} btn-sm" onclick="toggleStaff('${s.id}',${!s.active})">${s.active?'Disable':'Enable'}</button>
-            <button class="btn btn-d btn-sm" onclick="confirmDel('${s.id}','staff')">Del</button>
-          </div></td>
-        </tr>`;
-      }).join('')
-    :'<tr><td colspan="6"><div class="empty-t"><p>No staff members</p></div></td></tr>';
+  document.getElementById('staffList').innerHTML=staffData.length?staffData.map(s=>{
+    const done=callTasks.filter(t=>t.assigned_to===s.id&&t.status==='completed').length;
+    return `<div class="data-item">
+      <div class="di-top"><div class="di-main">${s.name}<small>${s.email} · ${s.phone||'—'}</small></div><div class="di-right"><span class="badge ${s.active?'b-a':'b-i'}">${s.active?'ACTIVE':'OFF'}</span><div style="font-size:10px;color:var(--mut)">${done} tasks done</div></div></div>
+      <div class="di-btns"><button class="btn ${s.active?'btn-d':'btn-g'} btn-sm" onclick="toggleStaff('${s.id}',${!s.active})">${s.active?'Disable':'Enable'}</button><button class="btn btn-d btn-sm" onclick="confirmDel('${s.id}','staff')">Delete</button></div>
+    </div>`;
+  }).join(''):'<div class="empty"><p>No staff members</p></div>';
 }
-function openStaffModal(){document.getElementById('stName').value='';document.getElementById('stEmail').value='';document.getElementById('stPhone').value='';document.getElementById('stPass').value='';document.getElementById('stErr').textContent='';document.getElementById('staffMod').classList.add('open');}
+function openStaffMod(){['stName','stEmail','stPhone','stPass'].forEach(id=>document.getElementById(id).value='');document.getElementById('stErr').textContent='';document.getElementById('staffMod').classList.add('open');}
 async function saveStaff(){
-  const name=document.getElementById('stName').value.trim();
-  const email=document.getElementById('stEmail').value.trim();
-  const phone=document.getElementById('stPhone').value.trim();
-  const pass=document.getElementById('stPass').value;
+  const name=document.getElementById('stName').value.trim(),email=document.getElementById('stEmail').value.trim(),phone=document.getElementById('stPhone').value.trim(),pass=document.getElementById('stPass').value;
   if(!name||!email||!pass){document.getElementById('stErr').textContent='Fill required fields';return;}
   if(pass.length<8){document.getElementById('stErr').textContent='Password min 8 chars';return;}
   try{
-    // Hash password client-side (basic — real hashing done server-side)
-    const encoder=new TextEncoder();
-    const data=encoder.encode(pass);
-    const hashBuffer=await crypto.subtle.digest('SHA-256',data);
-    const hashArray=Array.from(new Uint8Array(hashBuffer));
-    const hashHex=hashArray.map(b=>b.toString(16).padStart(2,'0')).join('');
-    await db.from('staff').insert({name,email,phone,password_hash:hashHex,active:true,created_at:new Date().toISOString()});
-    document.getElementById('staffMod').classList.remove('open');
-    toast('Staff added!','success');await loadStaff();
+    const enc=new TextEncoder();const buf=await crypto.subtle.digest('SHA-256',enc.encode(pass));
+    const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    await db.from('staff').insert({name,email,phone,password_hash:hash,active:true,created_at:new Date().toISOString()});
+    closeMod('staffMod');toast('Staff added!','success');await loadStaff();
   }catch(e){document.getElementById('stErr').textContent=e.message;}
 }
 async function toggleStaff(id,active){
@@ -121,130 +1009,93 @@ async function toggleStaff(id,active){
 
 // ── PRODUCT MODAL ──
 function openProdModal(){
-  document.getElementById('prodModTtl').textContent='Add Product';
-  document.getElementById('editId').value='';
+  document.getElementById('prodModTtl').textContent='Add Product';document.getElementById('editId').value='';
   ['pName','pDesc','pImgUrl'].forEach(id=>document.getElementById(id).value='');
   ['pPrice','pCOD','pStock'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('pCat').value='';
-  document.getElementById('pActive').className='tog on';
-  document.getElementById('pCODA').className='tog on';
-  document.getElementById('imgPrev').innerHTML='<div class="iprev-ph"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p>Click or drag image</p></div><input type="file" accept="image/*" onchange="handleProdImg(event)">';
-  document.getElementById('uprogWrap').style.display='none';
-  uploadedImgUrl='';
+  document.getElementById('pCat').value='';document.getElementById('pActive').className='tog on';document.getElementById('pCODA').className='tog on';
+  document.getElementById('imgPrevArea').innerHTML='<input type="file" accept="image/*" onchange="handleProdImg(event)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><p>Tap to upload image</p>';
+  document.getElementById('uprogStatus').textContent='';uploadedImgUrl='';
   document.getElementById('prodMod').classList.add('open');
 }
 function editProd(id){
   const p=prods.find(x=>x.id===id);if(!p)return;
-  document.getElementById('prodModTtl').textContent='Edit Product';
-  document.getElementById('editId').value=id;
-  document.getElementById('pName').value=p.name;
-  document.getElementById('pDesc').value=p.description||'';
-  document.getElementById('pPrice').value=p.price;
-  document.getElementById('pCOD').value=p.cod_charge||'';
-  document.getElementById('pStock').value=p.stock||'';
-  document.getElementById('pImgUrl').value=p.image_url||'';
+  document.getElementById('prodModTtl').textContent='Edit Product';document.getElementById('editId').value=id;
+  document.getElementById('pName').value=p.name;document.getElementById('pDesc').value=p.description||'';
+  document.getElementById('pPrice').value=p.price;document.getElementById('pCOD').value=p.cod_charge||'';
+  document.getElementById('pStock').value=p.stock||'';document.getElementById('pImgUrl').value=p.image_url||'';
   document.getElementById('pCat').value=p.category||'';
-  document.getElementById('pActive').className='tog'+(p.active?' on':'');
-  document.getElementById('pCODA').className='tog'+(p.cod_available?' on':'');
-  uploadedImgUrl=p.image_url||'';
-  if(p.image_url)prvImgUrl(p.image_url);
+  document.getElementById('pActive').className='tog'+(p.active?' on':'');document.getElementById('pCODA').className='tog'+(p.cod_available?' on':'');
+  uploadedImgUrl=p.image_url||'';if(p.image_url)previewImgUrl(p.image_url);
   document.getElementById('prodMod').classList.add('open');
 }
-function closeProdModal(){document.getElementById('prodMod').classList.remove('open');}
-function prvImgUrl(url){
-  const el=document.getElementById('imgPrev');if(!el)return;
-  el.innerHTML=url?`<img src="${url}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<div class=\\'iprev-ph\\'><p>Image not found</p></div><input type=\\'file\\' accept=\\'image/*\\' onchange=\\'handleProdImg(event)\\''">`:'<div class="iprev-ph"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><p>Click or drag</p></div>';
-  if(url)el.innerHTML+=`<input type="file" accept="image/*" onchange="handleProdImg(event)" style="position:absolute;inset:0;opacity:0;cursor:pointer">`;
+function previewImgUrl(url){
+  const el=document.getElementById('imgPrevArea');if(!el)return;
+  el.innerHTML=url?`<img src="${url}" style="width:100%;max-height:120px;object-fit:cover;border-radius:var(--rs)" onerror="this.parentElement.innerHTML='<p style=\\'color:var(--mut);font-size:11px\\'>Image not found</p>'"><input type="file" accept="image/*" onchange="handleProdImg(event)" style="position:absolute;inset:0;opacity:0">`:'<input type="file" accept="image/*" onchange="handleProdImg(event)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><p>Tap to upload</p>';
 }
 async function handleProdImg(event){
   const file=event.target.files[0];if(!file)return;
-  if(!file.type.startsWith('image/')){toast('Select an image file','error');return;}
-  if(file.size>5*1024*1024){toast('Image must be under 5MB','error');return;}
-  // Preview
-  const reader=new FileReader();
-  reader.onload=e=>{prvImgUrl(e.target.result);};
-  reader.readAsDataURL(file);
-  // Upload to Supabase Storage
-  const prog=document.getElementById('uprogWrap');
-  const fill=document.getElementById('uprogFill');
-  prog.style.display='block';fill.style.width='20%';
+  if(!file.type.startsWith('image/')){toast('Select image file','error');return;}
+  if(file.size>5*1024*1024){toast('Max 5MB','error');return;}
+  const reader=new FileReader();reader.onload=e=>previewImgUrl(e.target.result);reader.readAsDataURL(file);
+  document.querySelector('.uprog').style.display='block';document.getElementById('uprogFill').style.width='20%';
+  document.getElementById('uprogStatus').textContent='Uploading…';
   try{
-    const ext=file.name.split('.').pop();
-    const path=`products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    fill.style.width='60%';
+    const ext=file.name.split('.').pop();const path=`products/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    document.getElementById('uprogFill').style.width='60%';
     const {data,error}=await db.storage.from('product-images').upload(path,file,{contentType:file.type,upsert:true});
     if(error)throw error;
-    fill.style.width='100%';
+    document.getElementById('uprogFill').style.width='100%';
     const {data:urlData}=db.storage.from('product-images').getPublicUrl(path);
-    uploadedImgUrl=urlData.publicUrl;
-    document.getElementById('pImgUrl').value=uploadedImgUrl;
-    toast('Image uploaded!','success');
-    setTimeout(()=>prog.style.display='none',1000);
-  }catch(e){prog.style.display='none';toast('Upload failed: '+e.message,'error');}
+    uploadedImgUrl=urlData.publicUrl;document.getElementById('pImgUrl').value=uploadedImgUrl;
+    document.getElementById('uprogStatus').textContent='✓ Uploaded';toast('Image uploaded!','success');
+    setTimeout(()=>document.querySelector('.uprog').style.display='none',1500);
+  }catch(e){document.querySelector('.uprog').style.display='none';document.getElementById('uprogStatus').textContent='Upload failed';toast('Upload failed: '+e.message,'error');}
 }
 async function saveProd(){
   const id=document.getElementById('editId').value;
   const imgUrl=uploadedImgUrl||document.getElementById('pImgUrl').value.trim();
-  const payload={
-    name:document.getElementById('pName').value.trim(),
-    description:document.getElementById('pDesc').value.trim(),
-    price:parseFloat(document.getElementById('pPrice').value)||0,
-    cod_charge:parseFloat(document.getElementById('pCOD').value)||0,
-    stock:parseInt(document.getElementById('pStock').value)||0,
-    image_url:imgUrl,
-    category:document.getElementById('pCat').value,
-    active:document.getElementById('pActive').classList.contains('on'),
-    cod_available:document.getElementById('pCODA').classList.contains('on'),
-  };
+  const payload={name:document.getElementById('pName').value.trim(),description:document.getElementById('pDesc').value.trim(),price:parseFloat(document.getElementById('pPrice').value)||0,cod_charge:parseFloat(document.getElementById('pCOD').value)||0,stock:parseInt(document.getElementById('pStock').value)||0,image_url:imgUrl,category:document.getElementById('pCat').value,active:document.getElementById('pActive').classList.contains('on'),cod_available:document.getElementById('pCODA').classList.contains('on')};
   if(!payload.name||!payload.price){toast('Name and price required','error');return;}
-  const btn=document.getElementById('saveProdBtn');btn.disabled=true;btn.textContent='Saving…';
+  const btn=document.getElementById('saveProdBtn');btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
   try{
-    if(id){
-      await db.from('products').update(payload).eq('id',id);
-      const i=prods.findIndex(p=>p.id==id);if(i>-1)prods[i]={...prods[i],...payload};
-      toast('Product updated!','success');
-    }else{
-      payload.created_at=new Date().toISOString();
-      const {data}=await db.from('products').insert(payload).select();
-      prods.unshift(data?.[0]||{...payload,id:Date.now()});
-      toast('Product added!','success');
-    }
+    if(id){await db.from('products').update(payload).eq('id',id);const i=prods.findIndex(p=>p.id==id);if(i>-1)prods[i]={...prods[i],...payload};toast('Updated!','success');}
+    else{payload.created_at=new Date().toISOString();const {data}=await db.from('products').insert(payload).select();prods.unshift(data?.[0]||{...payload,id:Date.now()});toast('Added!','success');}
   }catch(e){toast('Error: '+e.message,'error');}
-  btn.disabled=false;btn.textContent='Save Product';
-  closeProdModal();renderProds();renderDash();
+  btn.disabled=false;btn.textContent='Save Product';closeMod('prodMod');renderProds();renderDash();
 }
 
 // ── CATEGORIES ──
 function openCatModal(){document.getElementById('catName').value='';document.getElementById('catMod').classList.add('open');}
 async function saveCat(){
-  const name=document.getElementById('catName').value.trim();
-  if(!name){toast('Name required','error');return;}
+  const name=document.getElementById('catName').value.trim();if(!name){toast('Name required','error');return;}
   const slug=name.toLowerCase().replace(/\s+/g,'-');
-  try{const {data}=await db.from('categories').insert({name,slug}).select();cats.push(data?.[0]||{id:Date.now(),name,slug});}
-  catch{cats.push({id:Date.now(),name,slug});}
-  document.getElementById('catMod').classList.remove('open');
-  renderCats();updateCatSel();toast('Category added!','success');
+  try{const {data}=await db.from('categories').insert({name,slug}).select();cats.push(data?.[0]||{id:Date.now(),name,slug});}catch{cats.push({id:Date.now(),name,slug});}
+  closeMod('catMod');renderCats();updateCatSel();toast('Category added!','success');
 }
 
 // ── DELETE ──
 function confirmDel(id,type){
-  pendDel={id,type};
-  document.getElementById('confTtl').textContent=`Delete ${type}?`;
-  document.getElementById('confMsg').textContent=`This ${type} will be permanently deleted.`;
-  document.getElementById('confOk').onclick=execDel;
-  document.getElementById('confOvl').classList.add('open');
+  pendDel={id,type};document.getElementById('confTtl').textContent=`Delete ${type}?`;document.getElementById('confMsg').textContent=`This ${type} will be permanently deleted.`;document.getElementById('confOk').onclick=execDel;document.getElementById('confOvl').classList.add('open');
 }
 function closeConf(){document.getElementById('confOvl').classList.remove('open');pendDel=null;}
 async function execDel(){
-  if(!pendDel)return;
-  const {id,type}=pendDel;
+  if(!pendDel)return;const {id,type}=pendDel;
   const tmap={product:'products',order:'orders',category:'categories',staff:'staff'};
   try{await db.from(tmap[type]).delete().eq('id',id);}catch(e){console.log(e);}
   if(type==='product'){prods=prods.filter(p=>p.id!=id);renderProds();}
   else if(type==='order'){ords=ords.filter(o=>o.id!=id);renderOrds();}
   else if(type==='category'){cats=cats.filter(c=>c.id!=id);renderCats();}
-  else if(type==='staff'){staffList=staffList.filter(s=>s.id!=id);renderStaff();}
-  closeConf();renderDash();toast(`${type} deleted`,'success');
+  else if(type==='staff'){staffData=staffData.filter(s=>s.id!=id);renderStaff();}
+  closeConf();renderDash();toast('Deleted','success');
+}
+
+// ── FILTER ──
+function filterList(type,q){
+  const ql=q.toLowerCase();
+  if(type==='prods')renderProds(q?prods.filter(p=>p.name.toLowerCase().includes(ql)):null);
+  else if(type==='ords')renderOrds(q?ords.filter(o=>o.product_name?.toLowerCase().includes(ql)||String(o.id).includes(ql)):null);
+  else if(type==='resellers')renderResellers(q?users.filter(u=>(u.full_name||'').toLowerCase().includes(ql)||u.email.toLowerCase().includes(ql)):null);
+  else if(type==='wallets')renderWallets(q?users.filter(u=>(u.full_name||'').toLowerCase().includes(ql)||u.email.toLowerCase().includes(ql)):null);
 }
 
 // ── NAV ──
@@ -253,28 +1104,30 @@ function showPg(name,btn){
   document.querySelectorAll('.sblink').forEach(l=>l.classList.remove('act'));
   document.getElementById('pg-'+name)?.classList.add('act');
   if(btn)btn.classList.add('act');
-  const titles={dashboard:'Dashboard',products:'Products',categories:'Categories',orders:'Orders',resellers:'Resellers',kyc:'KYC Review',helpdesk:'Help Desk',calltasks:'Call Tasks',subscriptions:'Subscriptions',staff:'Staff',settings:'Settings'};
+  const titles={dashboard:'Dashboard',products:'Products',categories:'Categories',orders:'Orders',resellers:'Resellers',kyc:'KYC Review',withdrawals:'Withdrawals',wallet:'Wallet Mgmt',helpdesk:'Help Desk',calltasks:'Call Tasks',subscriptions:'Subscriptions',staff:'Staff',settings:'Settings'};
   document.getElementById('pageTitle').textContent=titles[name]||name;
-  document.getElementById('topAction').style.display=name==='products'?'':'none';
-  if(name==='resellers')renderResellers();
+  document.getElementById('topAction').style.display=name==='products'?'flex':'none';
+  if(name==='withdrawals')renderWR();
+  if(name==='wallet'){renderWallets();loadWalletOrders();}
   if(name==='calltasks')renderCT();
+  closeSB();window.scrollTo(0,0);
 }
 
-function saveSettings(){toast('Settings saved!','success');}
-
-// Close overlays on bg click
-['prodMod','catMod','staffMod','kycMod','hdMod','ctMod','planMod'].forEach(id=>{
+// ── MODALS ──
+function closeMod(id){document.getElementById(id).classList.remove('open');}
+['prodMod','kycMod','hdMod','ctMod','catMod','staffMod','planMod'].forEach(id=>{
   const el=document.getElementById(id);
   if(el)el.addEventListener('click',e=>{if(e.target===e.currentTarget)el.classList.remove('open');});
 });
 
+function saveSettings(){toast('Settings saved!','success');}
+
 // ── TOAST ──
 function toast(msg,type='info'){
-  const w=document.getElementById('toastWrap');
-  const t=document.createElement('div');
+  const w=document.getElementById('toastWrap');const t=document.createElement('div');
   t.className=`toast ${type}`;t.innerHTML=`<div class="td"></div>${msg}`;
   w.appendChild(t);
-  setTimeout(()=>{t.style.cssText='opacity:0;transform:translateX(11px);transition:all .3s';setTimeout(()=>t.remove(),320);},3200);
+  setTimeout(()=>{t.style.cssText='opacity:0;transform:translateY(-6px);transition:all .3s';setTimeout(()=>t.remove(),320);},3500);
 }
 </script>
 </body>
