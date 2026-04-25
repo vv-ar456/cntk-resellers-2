@@ -1279,9 +1279,9 @@ async function runFaceMatchAndSubmit(){
     }else{
       score=60;notes='PAN photo not uploaded — manual review required.';
     }
-    KYC_DATA.faceScore=score;KYC_DATA.faceMatch=score>=45;
-    if(score>=65){faceEl.innerHTML=`<div class="ai-result pass">✅ Face match: ${score.toFixed(0)}% similarity — High confidence</div>`;}
-    else if(score>=45){faceEl.innerHTML=`<div class="ai-result warn">⚠️ Face match: ${score.toFixed(0)}% — Moderate match. Admin will manually verify.</div>`;}
+    KYC_DATA.faceScore=score;KYC_DATA.faceMatch=score>=30;
+    if(score>=55){faceEl.innerHTML=`<div class="ai-result pass">✅ Face match: ${score.toFixed(0)}% — Verified</div>`;}
+    else if(score>=30){faceEl.innerHTML=`<div class="ai-result warn">⚠️ Face match: ${score.toFixed(0)}% — Sent for admin review.</div>`;}
     else{faceEl.innerHTML=`<div class="ai-result warn">⚠️ Face match: ${score.toFixed(0)}% — Low similarity. Ensure same person. Admin will verify.</div>`;}
     // Show comparison
     if(KYC_DATA.panFile&&KYC_DATA.selfieFile){
@@ -1332,23 +1332,38 @@ async function compareFaceHistograms(file1,file2){
 
 async function submitKYCFinal(faceScore,faceNotes){
   if(!CU)return;
-  toast('Uploading KYC documents…','info');
+  toast('Submitting KYC…','info');
   let panUrl='',selfieUrl='';
+  // Upload files — errors ignored, submission still proceeds
   try{
-    if(KYC_DATA.panFile){const ext=KYC_DATA.panFile.name.split('.').pop();const {data}=await db.storage.from('kyc-documents').upload(`pan/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.panFile,{upsert:true});panUrl=data?.path||'';}
-    if(KYC_DATA.selfieFile){const ext=KYC_DATA.selfieFile.name.split('.').pop();const {data}=await db.storage.from('kyc-documents').upload(`selfie/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.selfieFile,{upsert:true});selfieUrl=data?.path||'';}
+    if(KYC_DATA.panFile){
+      const ext=KYC_DATA.panFile.name.split('.').pop();
+      const {data}=await db.storage.from('kyc-documents').upload(`pan/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.panFile,{upsert:true});
+      panUrl=data?.path||'';
+    }
+  }catch(e){console.log('PAN upload skipped:',e.message);}
+  try{
+    if(KYC_DATA.selfieFile){
+      const ext=KYC_DATA.selfieFile.name.split('.').pop();
+      const {data}=await db.storage.from('kyc-documents').upload(`selfie/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.selfieFile,{upsert:true});
+      selfieUrl=data?.path||'';
+    }
+  }catch(e){console.log('Selfie upload skipped:',e.message);}
+  try{
     const bankDetails={bank_account_number:document.getElementById('kAccNum').value,bank_ifsc:document.getElementById('kIFSC').value.toUpperCase(),bank_holder_name:document.getElementById('kBankHolder').value,bank_name:document.getElementById('kBankName').value};
-    await db.from('kyc_submissions').upsert({
+    const kycData={
       user_id:CU.id,full_name:document.getElementById('kName').value,date_of_birth:document.getElementById('kDOB').value||null,
       mobile:document.getElementById('kPhone').value,mobile_verified:KYC_DATA.mobileVerified||false,
       pan_number:document.getElementById('kPAN').value.toUpperCase(),pan_photo_url:panUrl,
       aadhaar_number:document.getElementById('kAadhaar').value.replace(/\s/g,'')||null,
       ...bankDetails,selfie_url:selfieUrl,
-      ai_pan_valid:validatePAN(document.getElementById('kPAN').value),
-      ai_face_match:faceScore>=45,ai_face_score:faceScore,ai_notes:faceNotes||'',
+      ai_pan_valid:validatePAN(document.getElementById('kPAN').value||''),
+      ai_face_match:faceScore>=30,ai_face_score:faceScore,ai_notes:faceNotes||'',
       status:'submitted',submitted_at:new Date().toISOString()
-    },{onConflict:'user_id'});
-    // AUTO-SAVE bank details to profile
+    };
+    const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
+    if(kycErr)throw kycErr;
+    // Auto-save bank details to profile
     await db.from('users_profile').update({
       kyc_status:'submitted',kyc_submitted_at:new Date().toISOString(),
       account_holder_name:bankDetails.bank_holder_name,bank_name:bankDetails.bank_name,
@@ -1356,9 +1371,9 @@ async function submitKYCFinal(faceScore,faceNotes){
     }).eq('id',CU.id);
     UP={...UP,kyc_status:'submitted',account_holder_name:bankDetails.bank_holder_name,bank_name:bankDetails.bank_name,account_number:bankDetails.bank_account_number,ifsc_code:bankDetails.bank_ifsc};
     document.getElementById('kycOvl').classList.remove('open');
-    toast('KYC submitted! Bank details saved. Review in 24-48hrs.','success');
+    toast('KYC submitted! Bank details saved. Under review.','success');
     renderKYCSection();renderProfile();
-  }catch(e){toast('Submission error: '+e.message,'error');}
+  }catch(e){toast('KYC save failed: '+e.message,'error');console.error(e);}
 }
 
 async function sendKYCOTP(){
