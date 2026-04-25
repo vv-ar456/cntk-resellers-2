@@ -1334,95 +1334,120 @@ async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
   if(!KYC_DATA.selfieFile){toast('Upload selfie first','error');return;}
   btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';
-  await submitKYCFinal(0,'Manual admin review');
+  try{
+    await submitKYCFinal(0,'Manual admin review');
+  }catch(e){
+    console.error('KYC submit error:',e);
+    toast('Error: '+e.message,'error');
+  }
   btn.disabled=false;btn.textContent='Submit for Review →';
 }
 
+// Upload image to base64 string (no storage needed — saves as data in DB notes)
+async function fileToBase64(file){
+  return new Promise((res)=>{
+    const r=new FileReader();
+    r.onload=e=>res(e.target.result);
+    r.onerror=()=>res('');
+    r.readAsDataURL(file);
+  });
+}
 
-// Helper: upload with 15s timeout so it never gets stuck
-async function uploadWithTimeout(bucket,path,file,opts={}){
-  return Promise.race([
-    db.storage.from(bucket).upload(path,file,opts),
-    new Promise((_,rej)=>setTimeout(()=>rej(new Error('Upload timeout')),15000))
-  ]);
+// Upload with 10s hard timeout
+async function tryStorageUpload(bucket,path,file){
+  try{
+    const result=await Promise.race([
+      db.storage.from(bucket).upload(path,file,{upsert:true,cacheControl:'3600'}),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000))
+    ]);
+    return result?.data?.path||'';
+  }catch(e){
+    console.log(`Storage upload skipped (${e.message})`);
+    return '';
+  }
 }
 
 async function submitKYCFinal(faceScore,faceNotes){
-  if(!CU)return;
-  toast('Submitting KYC…','info');
-  let panUrl='',selfieUrl='';
+  if(!CU){toast('Not logged in','error');return;}
+  toast('KYC save ho raha hai…','info');
 
-  // Upload PAN photo (15s max, skip on error)
-  try{
-    if(KYC_DATA.panFile){
-      const ext=KYC_DATA.panFile.name.split('.').pop()||'jpg';
-      const {data}=await uploadWithTimeout('kyc-documents',`pan/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.panFile,{upsert:true,contentType:KYC_DATA.panFile.type||'image/jpeg'});
-      panUrl=data?.path||'';
-    }
-  }catch(e){console.log('PAN upload skipped:',e.message);}
-
-  // Upload selfie (15s max, skip on error)
-  try{
-    if(KYC_DATA.selfieFile){
-      const ext=KYC_DATA.selfieFile.name.split('.').pop()||'jpg';
-      const {data}=await uploadWithTimeout('kyc-documents',`selfie/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.selfieFile,{upsert:true,contentType:KYC_DATA.selfieFile.type||'image/jpeg'});
-      selfieUrl=data?.path||'';
-    }
-  }catch(e){console.log('Selfie upload skipped:',e.message);}
-
-  try{
-    const bankDetails={
-      bank_account_number:document.getElementById('kAccNum').value,
-      bank_ifsc:document.getElementById('kIFSC').value.toUpperCase(),
-      bank_holder_name:document.getElementById('kBankHolder').value,
-      bank_name:document.getElementById('kBankName').value
-    };
-    const kycData={
-      user_id:CU.id,
-      full_name:document.getElementById('kName').value,
-      date_of_birth:document.getElementById('kDOB').value||null,
-      mobile:document.getElementById('kPhone').value,
-      mobile_verified:KYC_DATA.mobileVerified||false,
-      pan_number:document.getElementById('kPAN').value.toUpperCase(),
-      pan_photo_url:panUrl,
-      aadhaar_number:document.getElementById('kAadhaar').value.replace(/\s/g,'')||null,
-      ...bankDetails,
-      selfie_url:selfieUrl,
-      ai_pan_valid:validatePAN(document.getElementById('kPAN').value||''),
-      ai_face_match:faceScore>=30,
-      ai_face_score:faceScore,
-      ai_notes:faceNotes||'Manual admin review',
-      status:'submitted',
-      submitted_at:new Date().toISOString()
-    };
-    const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
-    if(kycErr)throw kycErr;
-    // Auto-save bank + kyc_status to profile
-    await db.from('users_profile').update({
-      kyc_status:'submitted',
-      kyc_submitted_at:new Date().toISOString(),
-      account_holder_name:bankDetails.bank_holder_name,
-      bank_name:bankDetails.bank_name,
-      account_number:bankDetails.bank_account_number,
-      ifsc_code:bankDetails.bank_ifsc
-    }).eq('id',CU.id);
-    UP={...UP,kyc_status:'submitted',
-      account_holder_name:bankDetails.bank_holder_name,
-      bank_name:bankDetails.bank_name,
-      account_number:bankDetails.bank_account_number,
-      ifsc_code:bankDetails.bank_ifsc
-    };
-    document.getElementById('kycOvl').classList.remove('open');
-    toast('KYC submitted! Admin review mein hai.','success');
-    renderKYCSection();renderProfile();
-    setTimeout(()=>checkKYCStatus(),400);
-  }catch(e){
-    toast('KYC save failed: '+e.message,'error');
-    console.error('submitKYCFinal error:',e);
-    // Re-enable submit button if it exists
-    const btn=document.getElementById('kycSubmitBtn');
-    if(btn){btn.disabled=false;btn.textContent='Submit for Review →';}
+  // Step 1: Save selfie as base64 in memory (backup if storage fails)
+  let selfieB64='';
+  if(KYC_DATA.selfieFile){
+    selfieB64=await fileToBase64(KYC_DATA.selfieFile);
   }
+
+  // Step 2: Try storage upload with timeout (non-blocking)
+  let panUrl='',selfieUrl='';
+  if(KYC_DATA.panFile){
+    const ext=KYC_DATA.panFile.name.split('.').pop()||'jpg';
+    panUrl=await tryStorageUpload('kyc-documents',`pan/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.panFile);
+  }
+  if(KYC_DATA.selfieFile){
+    const ext=KYC_DATA.selfieFile.name.split('.').pop()||'jpg';
+    selfieUrl=await tryStorageUpload('kyc-documents',`selfie/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.selfieFile);
+  }
+
+  // Step 3: Save to DB — this is the critical part, always runs
+  const bankDetails={
+    bank_account_number:document.getElementById('kAccNum')?.value||'',
+    bank_ifsc:(document.getElementById('kIFSC')?.value||'').toUpperCase(),
+    bank_holder_name:document.getElementById('kBankHolder')?.value||'',
+    bank_name:document.getElementById('kBankName')?.value||''
+  };
+
+  const kycData={
+    user_id:CU.id,
+    full_name:document.getElementById('kName')?.value||'',
+    date_of_birth:document.getElementById('kDOB')?.value||null,
+    mobile:document.getElementById('kPhone')?.value||'',
+    mobile_verified:KYC_DATA.mobileVerified||false,
+    pan_number:(document.getElementById('kPAN')?.value||'').toUpperCase(),
+    pan_photo_url:panUrl,
+    aadhaar_number:(document.getElementById('kAadhaar')?.value||'').replace(/\s/g,'')||null,
+    ...bankDetails,
+    selfie_url:selfieUrl,
+    // Store base64 selfie in notes if storage failed
+    ai_notes:(selfieUrl?'':`SELFIE_B64:${selfieB64.substring(0,200)}`)+' | '+(faceNotes||'Manual review'),
+    ai_pan_valid:validatePAN(document.getElementById('kPAN')?.value||''),
+    ai_face_match:faceScore>=30,
+    ai_face_score:faceScore,
+    status:'submitted',
+    submitted_at:new Date().toISOString()
+  };
+
+  const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
+  if(kycErr){
+    console.error('kyc_submissions upsert error:',kycErr);
+    throw new Error(kycErr.message);
+  }
+
+  // Step 4: Update user profile
+  const {error:profErr}=await db.from('users_profile').update({
+    kyc_status:'submitted',
+    kyc_submitted_at:new Date().toISOString(),
+    account_holder_name:bankDetails.bank_holder_name,
+    bank_name:bankDetails.bank_name,
+    account_number:bankDetails.bank_account_number,
+    ifsc_code:bankDetails.bank_ifsc
+  }).eq('id',CU.id);
+
+  if(profErr){console.warn('Profile update warning:',profErr.message);}
+
+  UP={...UP,
+    kyc_status:'submitted',
+    account_holder_name:bankDetails.bank_holder_name,
+    bank_name:bankDetails.bank_name,
+    account_number:bankDetails.bank_account_number,
+    ifsc_code:bankDetails.bank_ifsc
+  };
+
+  // Step 5: Close modal & show success
+  document.getElementById('kycOvl').classList.remove('open');
+  toast('KYC submit ho gaya! Admin review karega.','success');
+  renderKYCSection();
+  renderProfile();
+  setTimeout(()=>checkKYCStatus(),400);
 }
 
 async function sendKYCOTP(){
@@ -1543,21 +1568,8 @@ function renderOrderStep(){
   }
   else if(s===3){
     const ai=OS.parsed;
-    const addrToggle=ai.hasAddrCols?`
-      <div style="background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.2);border-radius:var(--rs);padding:11px;margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div style="font-size:12px;font-weight:600;color:var(--tel)">📍 Address Data Detected</div>
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:11px;color:var(--sub)">
-            <input type="checkbox" id="useAddrCheck" ${OS.useAddr!==false?'checked':''} onchange="OS.useAddr=this.checked" style="accent-color:var(--tel)"> Include
-          </label>
-        </div>
-        <div style="font-size:10px;color:var(--sub);font-family:'JetBrains Mono'">${ai.detectedCols.join(' · ')}</div>
-        ${OS.useAddr!==false?`<div style="font-size:10px;color:var(--tel);margin-top:5px">✓ Customer details will be saved with order</div>`:''}
-      </div>`:
-      `<div style="background:var(--sur);border:1px solid var(--brd);border-radius:var(--rs);padding:8px 11px;margin-bottom:10px;font-size:10px;color:var(--mut);font-family:'JetBrains Mono'">No address columns found in sheet</div>`;
     body.innerHTML=`${dots(3)}<div class="stag">Step 3 — Price</div><div class="sq">Your selling price per unit?</div>
       <div class="pb2"><div class="pf">✅ ${ai.qty} unit(s) found</div><div class="pi2">MRP: ₹${CUR_PROD.price} &nbsp;·&nbsp; Matched: ${ai.matchedRows||ai.qty} rows${ai.note?`<br>💡 ${ai.note}`:''}</div></div>
-      ${addrToggle}
       <div class="fg"><label class="lbl">Your Selling Price (≥ ₹${CUR_PROD.price})</label><input class="inp" type="number" id="spIn" placeholder="₹0" min="${CUR_PROD.price}" inputmode="decimal" style="font-size:20px;font-family:'Bebas Neue'" oninput="calcProfit(this.value)"></div>
       <div id="profitShow" style="font-size:12px;min-height:18px;margin-bottom:12px"></div>
       <button class="btn btn-a" onclick="goStep4()">Continue →</button>
@@ -1660,40 +1672,13 @@ function processFile(file){
   reader.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];aiParse(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));}catch{toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}};
   reader.readAsArrayBuffer(file);
 }
-// ── Address column detection helpers ──
-function detectCol(headers, keywords){
-  return headers.findIndex(h=>keywords.some(kw=>String(h).toLowerCase().includes(kw)));
-}
-
 function aiParse(rows){
   const kws=CUR_PROD.name.toLowerCase().split(' ').filter(w=>w.length>2);
   let totalRows=0,matchedRows=0,qty=0,note='',hdr=-1,qtyCol=-1;
-
-  // Find header row (first 6 rows)
   for(let i=0;i<Math.min(rows.length,6);i++){
     const r=rows[i].map(c=>String(c).toLowerCase().trim());
-    if(r.some(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pcs')||c.includes('name')||c.includes('address'))){
-      hdr=i;
-      qtyCol=r.findIndex(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pcs'));
-      break;
-    }
+    if(r.some(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pcs'))){hdr=i;qtyCol=r.findIndex(c=>c.includes('qty')||c.includes('quantity')||c.includes('unit')||c.includes('pcs'));break;}
   }
-
-  // Detect address-related columns
-  const headerRow=hdr>=0?rows[hdr].map(c=>String(c).toLowerCase().trim()):[];
-  const colMap={
-    name:   detectCol(headerRow,['name','customer','cust name','receiver']),
-    phone:  detectCol(headerRow,['phone','mobile','contact','number','mob']),
-    address:detectCol(headerRow,['address','addr','full address','delivery address','ship']),
-    city:   detectCol(headerRow,['city','town','dist','district']),
-    state:  detectCol(headerRow,['state','province']),
-    pincode:detectCol(headerRow,['pin','pincode','zip','postal','post code']),
-  };
-  OS.colMap=colMap;
-  OS.rawRows=rows;
-  OS.hdrRow=hdr;
-
-  // Count qty
   for(let i=hdr>=0?hdr+1:1;i<rows.length;i++){
     const row=rows[i],rs=row.map(c=>String(c)).join(' ');if(!rs.trim())continue;totalRows++;
     const sc=kws.filter(kw=>rs.toLowerCase().includes(kw)).length;
@@ -1704,29 +1689,9 @@ function aiParse(rows){
       if(!found)qty++;
     }
   }
-  if(matchedRows===0&&totalRows>0){
-    note='Product not matched — counted all rows.';matchedRows=totalRows;
-    if(qtyCol>=0){for(let i=hdr>=0?hdr+1:1;i<rows.length;i++){if(!rows[i].join('').trim())continue;const n=parseInt(String(rows[i][qtyCol]||'').replace(/\D/g,''));if(!isNaN(n)&&n>0)qty+=n;}}
-    if(qty===0)qty=matchedRows;
-  }
-
-  // Detect what address columns exist
-  const hasAddrCols=Object.values(colMap).some(v=>v>=0);
-  const detectedCols=[];
-  if(colMap.name>=0)detectedCols.push('Name');
-  if(colMap.phone>=0)detectedCols.push('Phone');
-  if(colMap.address>=0)detectedCols.push('Address');
-  if(colMap.city>=0)detectedCols.push('City');
-  if(colMap.state>=0)detectedCols.push('State');
-  if(colMap.pincode>=0)detectedCols.push('Pincode');
-
-  OS.parsed={qty:Math.max(qty,1),totalRows,matchedRows,note,hasAddrCols,detectedCols};
-  OS.step=3;renderOrderStep();
-  if(hasAddrCols){
-    toast(`AI found ${OS.parsed.qty} units + ${detectedCols.join(', ')} columns!`,'success');
-  }else{
-    toast(`AI found ${OS.parsed.qty} units!`,'success');
-  }
+  if(matchedRows===0&&totalRows>0){note='Product not matched — counted all rows.';matchedRows=totalRows;if(qtyCol>=0){for(let i=hdr>=0?hdr+1:1;i<rows.length;i++){if(!rows[i].join('').trim())continue;const n=parseInt(String(rows[i][qtyCol]||'').replace(/\D/g,''));if(!isNaN(n)&&n>0)qty+=n;}}if(qty===0)qty=matchedRows;}
+  OS.parsed={qty:Math.max(qty,1),totalRows,matchedRows,note};
+  OS.step=3;renderOrderStep();toast(`AI found ${OS.parsed.qty} units!`,'success');
 }
 function proceedManual(){
   const qty=parseInt(document.getElementById('manQty').value)||0;
@@ -1792,37 +1757,6 @@ async function doPayment(subtotal){
 async function saveOrder(resp,totalPaid,walletUsed,rzpPaid){
   try{
     const callFee=OS.callConf?((OS.callRec?7:5)*(OS.codCount+OS.prepaidCount)):0;
-
-    // Extract address data from sheet if user opted in
-    let custName=OS.manualData?.customerName||null;
-    let custPhone=OS.manualData?.customerPhone||null;
-    let custAddr=OS.manualData?.address||null;
-
-    if(OS.mode==='sheet'&&OS.useAddr!==false&&OS.colMap&&OS.rawRows){
-      const cm=OS.colMap,rows=OS.rawRows,hdr=OS.hdrRow;
-      const dataRows=rows.slice(hdr>=0?hdr+1:1).filter(r=>r.join('').trim());
-      // Aggregate address data from all rows
-      const names=[],phones=[],addrs=[],cities=[],states=[],pins=[];
-      dataRows.forEach(row=>{
-        if(cm.name>=0&&row[cm.name])names.push(String(row[cm.name]).trim());
-        if(cm.phone>=0&&row[cm.phone])phones.push(String(row[cm.phone]).trim());
-        if(cm.address>=0&&row[cm.address])addrs.push(String(row[cm.address]).trim());
-        if(cm.city>=0&&row[cm.city])cities.push(String(row[cm.city]).trim());
-        if(cm.state>=0&&row[cm.state])states.push(String(row[cm.state]).trim());
-        if(cm.pincode>=0&&row[cm.pincode])pins.push(String(row[cm.pincode]).trim());
-      });
-      // For single-row: use directly. For multi-row: join with semicolons
-      if(names.length)custName=[...new Set(names)].join('; ');
-      if(phones.length)custPhone=[...new Set(phones)].join(', ');
-      // Build full address string
-      const addrParts=[];
-      if(addrs.length)addrParts.push([...new Set(addrs)].join('; '));
-      if(cities.length)addrParts.push('City: '+[...new Set(cities)].join(', '));
-      if(states.length)addrParts.push('State: '+[...new Set(states)].join(', '));
-      if(pins.length)addrParts.push('PIN: '+[...new Set(pins)].join(', '));
-      if(addrParts.length)custAddr=addrParts.join(' | ');
-    }
-
     // Deduct wallet
     if(walletUsed>0){
       const newBal=Math.max(0,(WALLET.balance||0)-walletUsed);
@@ -1836,7 +1770,7 @@ async function saveOrder(resp,totalPaid,walletUsed,rzpPaid){
       wallet_used:walletUsed,razorpay_paid:rzpPaid,
       payment_id:resp?.razorpay_payment_id||'wallet',razorpay_order_id:resp?.razorpay_order_id||null,
       status:'paid',user_id:CU.id,is_manual:OS.mode==='manual',
-      customer_name:custName,customer_phone:custPhone,customer_address:custAddr,
+      customer_name:OS.manualData?.customerName||null,customer_phone:OS.manualData?.customerPhone||null,customer_address:OS.manualData?.address||null,
       call_confirmation:OS.callConf,call_recording:OS.callRec,call_confirmation_fee:callFee,
       call_status:OS.callConf?'pending':'none',margin_credited:false,
       created_at:new Date().toISOString()
