@@ -535,6 +535,20 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
   </div>
 </div>
 
+<!-- KYC WAITING PAGE (full screen overlay) -->
+<div id="kycWaitingScreen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
+  <div style="font-size:56px;margin-bottom:20px">⏳</div>
+  <div style="font-family:'Bebas Neue';font-size:28px;letter-spacing:2px;color:var(--amb);margin-bottom:12px">KYC UNDER REVIEW</div>
+  <div style="font-size:14px;color:var(--sub);line-height:1.8;max-width:300px;margin-bottom:28px">Your KYC documents have been submitted successfully.<br><br>Our admin team will verify your details within <strong style="color:var(--txt)">24-48 hours</strong>.<br><br>You'll be able to place orders once your KYC is approved.</div>
+  <div style="background:var(--card);border:1px solid var(--brd);border-radius:var(--r);padding:16px;width:100%;max-width:320px;margin-bottom:20px">
+    <div style="font-size:10px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:6px">SUBMISSION STATUS</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:var(--amb);animation:pulse 1.5s infinite"></div><div style="font-size:13px;font-weight:600" id="kycWaitStatus">Waiting for admin review…</div></div>
+  </div>
+  <div style="font-size:11px;color:var(--mut)">📧 Contact: Coreconics@fastservice.com</div>
+  <button class="btn btn-g" onclick="doSignOut()" style="margin-top:24px;width:auto;padding:10px 20px">Sign Out</button>
+</div>
+<style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}</style>
+
 <!-- BOTTOM NAV -->
 <div class="bnav">
   <div class="bnav-in">
@@ -667,13 +681,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
       </div>
       <!-- Step 4: Selfie + Face Match -->
       <div class="ksc" id="ksc-4">
-        <div class="ib" style="font-size:11px">AI will compare your selfie with PAN photo for identity verification.</div>
+        <div class="ib" style="font-size:11px">Upload a clear selfie. Admin will manually verify your identity.</div>
         <div class="uarea"><input type="file" accept="image/*" capture="user" onchange="handleKYCFile(event,'selfie')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg><p>Take selfie or <span>upload photo</span></p><div class="ft">Face clearly visible</div></div>
         <img class="prev-img" id="selfiePreview">
-        <div id="faceAIResult" style="margin-top:10px"></div>
         <div style="display:flex;gap:8px;margin-top:12px">
           <button class="btn btn-g" onclick="gotoKYC(3)" style="width:auto;padding:10px 16px">← Back</button>
-          <button class="btn btn-a" onclick="runFaceMatchAndSubmit()" id="kycSubmitBtn">AI Check & Submit →</button>
+          <button class="btn btn-a" onclick="submitKYCSimple()" id="kycSubmitBtn">Submit for Review →</button>
         </div>
       </div>
     </div>
@@ -751,6 +764,56 @@ let CU=null,UP=null,PRODS=[],ORDS=[],PLANS=[],CF='all';
 let CUR_PROD=null,OS={};
 let KYC_DATA={panFile:null,selfieFile:null,panImgEl:null,selfieImgEl:null,mobileVerified:false,otpSession:null};
 let BANK_PENDING={},WALLET={balance:0,locked:0,txns:[]};
+
+// ════════════════════════════════════════════════
+// KYC WAITING SCREEN
+// ════════════════════════════════════════════════
+function showKYCWaiting(){
+  document.getElementById('kycWaitingScreen').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function hideKYCWaiting(){
+  document.getElementById('kycWaitingScreen').style.display='none';
+  document.body.style.overflow='';
+}
+async function checkKYCStatus(){
+  if(!CU)return;
+  const ks=UP?.kyc_status||'pending';
+  if(ks==='submitted'){
+    // Show waiting screen - blocks everything
+    showKYCWaiting();
+    document.getElementById('kycWaitStatus').textContent='Waiting for admin review…';
+    // Poll every 30 seconds for status change
+    if(!window._kycPollInterval){
+      window._kycPollInterval=setInterval(async()=>{
+        const {data}=await db.from('users_profile').select('kyc_status').eq('id',CU.id).single();
+        if(data?.kyc_status==='approved'){
+          clearInterval(window._kycPollInterval);
+          window._kycPollInterval=null;
+          UP.kyc_status='approved';
+          hideKYCWaiting();
+          toast('KYC Approved! You can now place orders.','success');
+          renderProfile();renderKYCSection();
+        }else if(data?.kyc_status==='rejected'){
+          clearInterval(window._kycPollInterval);
+          window._kycPollInterval=null;
+          UP.kyc_status='rejected';
+          hideKYCWaiting();
+          document.getElementById('kycWaitStatus').textContent='KYC Rejected. Please re-submit.';
+          toast('KYC Rejected. Check profile for details.','error');
+          renderProfile();renderKYCSection();
+        }
+      },30000);
+    }
+  }else if(ks==='approved'){
+    hideKYCWaiting();
+  }else if(ks==='rejected'){
+    hideKYCWaiting();
+  }else{
+    // pending - not submitted yet, hide waiting
+    hideKYCWaiting();
+  }
+}
 
 // ════════════════════════════════════════════════
 // INIT
@@ -833,6 +896,8 @@ async function onLogin(user){
   await loadWallet();
   await checkWalletUnlocks();
   renderDash();renderProfile();
+  // Check KYC status - show waiting screen if submitted but not approved
+  await checkKYCStatus();
 }
 function onLogout(){
   CU=null;UP=null;ORDS=[];WALLET={balance:0,locked:0,txns:[]};
@@ -1265,92 +1330,14 @@ async function handleKYCFile(event,type){
   }
 }
 
-async function runFaceMatchAndSubmit(){
+async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
-  const faceEl=document.getElementById('faceAIResult');
-  if(!KYC_DATA.selfieFile){faceEl.innerHTML=`<div class="ai-result fail">❌ Upload selfie first</div>`;return;}
-  btn.disabled=true;
-  let timerCount=60;
-  // 60 second countdown timer
-  faceEl.innerHTML=`<div class="ai-result warn" style="text-align:center">🤖 AI comparing faces… <span id="kycTimer" style="font-family:'JetBrains Mono';color:var(--amb)">${timerCount}s</span></div>`;
-  btn.innerHTML=`<div class="spin"></div> AI Analyzing… <span id="kycBtnTimer">${timerCount}s</span>`;
-  const timerInterval=setInterval(()=>{
-    timerCount--;
-    const t1=document.getElementById('kycTimer');
-    const t2=document.getElementById('kycBtnTimer');
-    if(t1)t1.textContent=timerCount+'s';
-    if(t2)t2.textContent=timerCount+'s';
-    if(timerCount<=0){
-      clearInterval(timerInterval);
-      // Timeout — submit for manual review
-      faceEl.innerHTML=`<div class="ai-result warn">⏱ AI timeout. Submitting for admin manual review.</div>`;
-      btn.disabled=false;btn.textContent='AI Check & Submit →';
-      submitKYCFinal(0,'AI timeout — manual review required');
-    }
-  },1000);
-  try{
-    let score=0,notes='';
-    // Race: AI vs 55s timeout
-    const aiResult=await Promise.race([
-      KYC_DATA.panFile&&KYC_DATA.selfieFile
-        ?compareFaceHistograms(KYC_DATA.panFile,KYC_DATA.selfieFile)
-        :Promise.resolve(60),
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error('timeout')),55000))
-    ]);
-    score=aiResult;
-    if(!KYC_DATA.panFile)notes='PAN photo not uploaded — manual review required.';
-    clearInterval(timerInterval);
-    KYC_DATA.faceScore=score;KYC_DATA.faceMatch=score>=30;
-    if(score>=55){faceEl.innerHTML=`<div class="ai-result pass">✅ Face match: ${score.toFixed(0)}% — Verified</div>`;}
-    else if(score>=30){faceEl.innerHTML=`<div class="ai-result warn">⚠️ Face match: ${score.toFixed(0)}% — Sent for admin review.</div>`;}
-    else{faceEl.innerHTML=`<div class="ai-result warn">⚠️ Face match: ${score.toFixed(0)}% — Admin will verify.</div>`;}
-    if(KYC_DATA.panFile&&KYC_DATA.selfieFile){
-      faceEl.innerHTML+=`<div class="face-preview" style="margin-top:10px"><div class="face-box"><img src="${URL.createObjectURL(KYC_DATA.panFile)}"><div class="face-box-lbl">PAN PHOTO</div></div><div class="face-box"><img src="${URL.createObjectURL(KYC_DATA.selfieFile)}"><div class="face-box-lbl">YOUR SELFIE</div></div></div>`;
-    }
-    btn.disabled=false;btn.textContent='AI Check & Submit →';
-    await submitKYCFinal(score,notes);
-  }catch(e){
-    clearInterval(timerInterval);
-    faceEl.innerHTML=`<div class="ai-result warn">⏱ ${e.message==='timeout'?'AI timeout':'AI error'} — submitting for manual review.</div>`;
-    btn.disabled=false;btn.textContent='AI Check & Submit →';
-    await submitKYCFinal(0,e.message==='timeout'?'AI timeout — manual review':'AI error: '+e.message);
-  }
+  if(!KYC_DATA.selfieFile){toast('Upload selfie first','error');return;}
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';
+  await submitKYCFinal(0,'Manual admin review');
+  btn.disabled=false;btn.textContent='Submit for Review →';
 }
 
-async function compareFaceHistograms(file1,file2){
-  return new Promise((resolve)=>{
-    const canvas1=document.createElement('canvas'),canvas2=document.createElement('canvas');
-    const ctx1=canvas1.getContext('2d'),ctx2=canvas2.getContext('2d');
-    const img1=new Image(),img2=new Image();
-    const SIZE=64;
-    canvas1.width=canvas1.height=SIZE;canvas2.width=canvas2.height=SIZE;
-    let loaded=0;
-    const tryCompare=()=>{
-      if(++loaded<2)return;
-      ctx1.drawImage(img1,0,0,SIZE,SIZE);ctx2.drawImage(img2,0,0,SIZE,SIZE);
-      const d1=ctx1.getImageData(0,0,SIZE,SIZE).data;
-      const d2=ctx2.getImageData(0,0,SIZE,SIZE).data;
-      // Build histograms (R,G,B channels, 32 bins each)
-      const bins=32,h1=new Float32Array(bins*3),h2=new Float32Array(bins*3);
-      for(let i=0;i<d1.length;i+=4){
-        h1[Math.floor(d1[i]/8)]++;h1[bins+Math.floor(d1[i+1]/8)]++;h1[bins*2+Math.floor(d1[i+2]/8)]++;
-        h2[Math.floor(d2[i]/8)]++;h2[bins+Math.floor(d2[i+1]/8)]++;h2[bins*2+Math.floor(d2[i+2]/8)]++;
-      }
-      // Normalize
-      const tot1=SIZE*SIZE,tot2=SIZE*SIZE;
-      for(let i=0;i<h1.length;i++){h1[i]/=tot1;h2[i]/=tot2;}
-      // Bhattacharyya coefficient
-      let bc=0;for(let i=0;i<h1.length;i++)bc+=Math.sqrt(h1[i]*h2[i]);
-      // Convert to similarity score 0-100
-      const sim=Math.min(100,Math.max(0,bc*100*(1/0.95)));
-      // Add slight randomization to mimic real uncertainty
-      const jitter=(Math.random()-0.5)*8;
-      resolve(Math.min(100,Math.max(0,sim+jitter)));
-    };
-    img1.onload=tryCompare;img2.onload=tryCompare;
-    img1.src=URL.createObjectURL(file1);img2.src=URL.createObjectURL(file2);
-  });
-}
 
 async function submitKYCFinal(faceScore,faceNotes){
   if(!CU)return;
@@ -1393,8 +1380,11 @@ async function submitKYCFinal(faceScore,faceNotes){
     }).eq('id',CU.id);
     UP={...UP,kyc_status:'submitted',account_holder_name:bankDetails.bank_holder_name,bank_name:bankDetails.bank_name,account_number:bankDetails.bank_account_number,ifsc_code:bankDetails.bank_ifsc};
     document.getElementById('kycOvl').classList.remove('open');
-    toast('KYC submitted! Bank details saved. Under review.','success');
+    toast('KYC submitted! Under review by admin.','success');
+    UP.kyc_status='submitted';
     renderKYCSection();renderProfile();
+    // Show waiting screen immediately after submission
+    setTimeout(()=>checkKYCStatus(),500);
   }catch(e){toast('KYC save failed: '+e.message,'error');console.error(e);}
 }
 
@@ -1467,6 +1457,7 @@ async function cancelSub(){
 // ════════════════════════════════════════════════
 function openOrder(pid){
   if(!CU){openAuth();toast('Sign in to order','info');return;}
+  if(UP?.kyc_status==='submitted'){toast('KYC under review. Wait for admin approval.','info');showKYCWaiting();return;}
   if(UP?.kyc_status!=='approved'){toast('Complete KYC first!','error');openKYC();return;}
   CUR_PROD=PRODS.find(p=>p.id===pid);if(!CUR_PROD)return;
   OS={step:1,mode:'sheet',parsed:null,sellerPrice:0,codCount:0,prepaidCount:0,callConf:false,callRec:false,walletUse:0};
