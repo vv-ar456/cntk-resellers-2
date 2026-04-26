@@ -755,7 +755,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
 });
 let _dt=0;
-// anti-debugger removed
+
 
 // ════════════════════════════════════════════════
 // STATE
@@ -1355,7 +1355,6 @@ async function submitKYCFinal(faceScore,faceNotes){
     bank_name:document.getElementById('kBankName').value
   };
 
-  // STEP 1: Save form data instantly — no photos yet
   const kycData={
     user_id:CU.id,
     full_name:document.getElementById('kName').value,
@@ -1378,7 +1377,16 @@ async function submitKYCFinal(faceScore,faceNotes){
     submitted_at:new Date().toISOString()
   };
 
-  const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
+  // INSERT — if exists update, no upsert conflict needed
+  const {data:existing}=await db.from('kyc_submissions').select('id').eq('user_id',CU.id).single();
+  let kycErr;
+  if(existing){
+    const {error}=await db.from('kyc_submissions').update(kycData).eq('user_id',CU.id);
+    kycErr=error;
+  }else{
+    const {error}=await db.from('kyc_submissions').insert(kycData);
+    kycErr=error;
+  }
   if(kycErr){console.error('DB error:',kycErr);throw new Error(kycErr.message);}
 
   await db.from('users_profile').update({
@@ -1396,7 +1404,7 @@ async function submitKYCFinal(faceScore,faceNotes){
   renderKYCSection();renderProfile();
   setTimeout(()=>checkKYCStatus(),400);
 
-  // STEP 2: Background photo upload — non-blocking
+  // Background photo upload
   const userId=CU.id;
   const panFile=KYC_DATA.panFile;
   const selfieFile=KYC_DATA.selfieFile;
@@ -1411,7 +1419,7 @@ async function submitKYCFinal(faceScore,faceNotes){
         ]);
         panUrl=data?.path||'';
       }
-    }catch(e){console.log('PAN bg upload:',e.message);}
+    }catch(e){console.log('PAN bg:',e.message);}
     try{
       if(selfieFile){
         const ext=selfieFile.name.split('.').pop()||'jpg';
@@ -1421,7 +1429,7 @@ async function submitKYCFinal(faceScore,faceNotes){
         ]);
         selfieUrl=data?.path||'';
       }
-    }catch(e){console.log('Selfie bg upload:',e.message);}
+    }catch(e){console.log('Selfie bg:',e.message);}
     if(panUrl||selfieUrl){
       const upd={};
       if(panUrl)upd.pan_photo_url=panUrl;
