@@ -750,12 +750,6 @@ const db=createClient(SB_URL,SB_KEY);
 // ════════════════════════════════════════════════
 // SECURITY
 // ════════════════════════════════════════════════
-document.addEventListener('contextmenu',e=>e.preventDefault());
-document.addEventListener('keydown',e=>{
-  if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
-});
-let _dt=0;
-setInterval(()=>{const t=performance.now();debugger;if(performance.now()-t>150){document.body.innerHTML='<div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#080a0e;color:#ff4757;font-family:monospace;font-size:16px;text-align:center;padding:20px">⚠️ Security violation detected.<br>Access denied.</div>';};},5000);
 
 // ════════════════════════════════════════════════
 // STATE
@@ -1332,10 +1326,16 @@ async function handleKYCFile(event,type){
 
 async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
-  if(!KYC_DATA.selfieFile){toast('Upload selfie first','error');return;}
+  if(!KYC_DATA.selfieFile){toast('Selfie upload karo pehle','error');return;}
   btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';
-  await submitKYCFinal(0,'Manual admin review');
-  btn.disabled=false;btn.textContent='Submit for Review →';
+  try{
+    await submitKYCFinal(0,'Manual admin review');
+  }catch(e){
+    toast('Error: '+e.message,'error');
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Submit for Review →';
+  }
 }
 
 
@@ -1352,8 +1352,8 @@ async function submitKYCFinal(faceScore,faceNotes){
       bank_name:g('kBankName')
     };
     const now=new Date().toISOString();
-    // Step 1: Check if KYC record exists
-    const {data:existing}=await db.from('kyc_submissions').select('id').eq('user_id',CU.id).maybeSingle();
+    // Step 1: DELETE existing + fresh INSERT (no maybeSingle hang)
+    await db.from('kyc_submissions').delete().eq('user_id',CU.id);
     const kycPayload={
       user_id:CU.id,
       full_name:g('kName'),
@@ -1375,16 +1375,10 @@ async function submitKYCFinal(faceScore,faceNotes){
       status:'submitted',
       submitted_at:now
     };
-    let kycErr;
-    if(existing){
-      const {error}=await db.from('kyc_submissions').update(kycPayload).eq('user_id',CU.id);
-      kycErr=error;
-    }else{
-      const {error}=await db.from('kyc_submissions').insert(kycPayload);
-      kycErr=error;
-    }
+    const {error:kycErr}=await db.from('kyc_submissions').insert(kycPayload);
     if(kycErr){
       console.error('KYC DB error:',kycErr);
+      toast('DB Error: '+kycErr.message,'error');
       throw new Error(kycErr.message);
     }
     // Step 2: Update profile
