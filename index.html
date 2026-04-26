@@ -1327,43 +1327,68 @@ async function handleKYCFile(event,type){
 async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
   if(!KYC_DATA.selfieFile){toast('Selfie upload karo pehle','error');return;}
-  btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';
-  try{
-    await submitKYCFinal(0,'Manual admin review');
-  }catch(e){
-    toast('Error: '+e.message,'error');
-  }finally{
-    btn.disabled=false;
-    btn.textContent='Submit for Review →';
-  }
-}
-
-
-async function submitKYCFinal(faceScore,faceNotes){
-  if(!CU)return;
-  const btn=document.getElementById('kycSubmitBtn');
-  if(btn){btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';}
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div> Uploading…';
   try{
     const g=id=>(document.getElementById(id)?.value||'').trim();
+    const now=new Date().toISOString();
+    const uid=CU.id;
+
+    // ── STEP 1: Upload PAN photo (like product image upload) ──
+    let panUrl='pending_upload';
+    if(KYC_DATA.panFile){
+      try{
+        btn.innerHTML='<div class="spin"></div> PAN Upload…';
+        const ext=KYC_DATA.panFile.name.split('.').pop()||'jpg';
+        const path='pan/'+uid+'_'+Date.now()+'.'+ext;
+        const {data:pd,error:pe}=await Promise.race([
+          db.storage.from('kyc-documents').upload(path,KYC_DATA.panFile,{contentType:KYC_DATA.panFile.type,upsert:true}),
+          new Promise((_,r)=>setTimeout(()=>r({data:null,error:{message:'timeout'}}),15000))
+        ]);
+        if(pe)console.log('PAN upload warn:',pe.message);
+        else if(pd?.path){
+          const {data:pu}=db.storage.from('kyc-documents').getPublicUrl(pd.path);
+          panUrl=pu?.publicUrl||pd.path;
+        }
+      }catch(e){console.log('PAN upload skip:',e.message);}
+    }
+
+    // ── STEP 2: Upload Selfie photo ──
+    let selfieUrl='pending_upload';
+    if(KYC_DATA.selfieFile){
+      try{
+        btn.innerHTML='<div class="spin"></div> Selfie Upload…';
+        const ext=KYC_DATA.selfieFile.name.split('.').pop()||'jpg';
+        const path='selfie/'+uid+'_'+Date.now()+'.'+ext;
+        const {data:sd,error:se}=await Promise.race([
+          db.storage.from('kyc-documents').upload(path,KYC_DATA.selfieFile,{contentType:KYC_DATA.selfieFile.type,upsert:true}),
+          new Promise((_,r)=>setTimeout(()=>r({data:null,error:{message:'timeout'}}),15000))
+        ]);
+        if(se)console.log('Selfie upload warn:',se.message);
+        else if(sd?.path){
+          const {data:su}=db.storage.from('kyc-documents').getPublicUrl(sd.path);
+          selfieUrl=su?.publicUrl||sd.path;
+        }
+      }catch(e){console.log('Selfie upload skip:',e.message);}
+    }
+
+    // ── STEP 3: Save to DB (DELETE + INSERT — no upsert/onConflict) ──
+    btn.innerHTML='<div class="spin"></div> Saving…';
     const bankDetails={
       bank_account_number:g('kAccNum'),
       bank_ifsc:g('kIFSC').toUpperCase(),
       bank_holder_name:g('kBankHolder'),
       bank_name:g('kBankName')
     };
-    const now=new Date().toISOString();
-    // Step 1: DELETE existing + fresh INSERT (no maybeSingle hang)
-    await db.from('kyc_submissions').delete().eq('user_id',CU.id);
     const kycPayload={
-      user_id:CU.id,
+      user_id:uid,
       full_name:g('kName'),
       date_of_birth:g('kDOB')||null,
       mobile:g('kPhone'),
       mobile_verified:KYC_DATA.mobileVerified||false,
       pan_number:g('kPAN').toUpperCase(),
-      pan_photo_url:'pending_upload',
+      pan_photo_url:panUrl,
       aadhaar_number:g('kAadhaar').replace(/[^0-9]/g,'')||null,
-      selfie_url:'pending_upload',
+      selfie_url:selfieUrl,
       bank_account_number:bankDetails.bank_account_number,
       bank_ifsc:bankDetails.bank_ifsc,
       bank_holder_name:bankDetails.bank_holder_name,
@@ -1375,13 +1400,16 @@ async function submitKYCFinal(faceScore,faceNotes){
       status:'submitted',
       submitted_at:now
     };
-    const {error:kycErr}=await db.from('kyc_submissions').insert(kycPayload);
-    if(kycErr){
-      console.error('KYC DB error:',kycErr);
-      toast('DB Error: '+kycErr.message,'error');
-      throw new Error(kycErr.message);
+
+    await db.from('kyc_submissions').delete().eq('user_id',uid);
+    const {error:insErr}=await db.from('kyc_submissions').insert(kycPayload);
+    if(insErr){
+      console.error('KYC INSERT error:',insErr);
+      toast('DB Error: '+insErr.message,'error');
+      return;
     }
-    // Step 2: Update profile
+
+    // ── STEP 4: Update user profile ──
     await db.from('users_profile').update({
       kyc_status:'submitted',
       kyc_submitted_at:now,
@@ -1389,48 +1417,31 @@ async function submitKYCFinal(faceScore,faceNotes){
       bank_name:bankDetails.bank_name,
       account_number:bankDetails.bank_account_number,
       ifsc_code:bankDetails.bank_ifsc
-    }).eq('id',CU.id);
+    }).eq('id',uid);
+
     UP={...UP,kyc_status:'submitted',
       account_holder_name:bankDetails.bank_holder_name,
       bank_name:bankDetails.bank_name,
       account_number:bankDetails.bank_account_number,
       ifsc_code:bankDetails.bank_ifsc
     };
-    // Step 3: Upload images in background - completely non-blocking
-    setTimeout(()=>uploadKYCImages(),100);
+
     document.getElementById('kycOvl').classList.remove('open');
-    toast('KYC submitted! Admin will review soon.','success');
-    renderKYCSection();
-    renderProfile();
-    setTimeout(()=>checkKYCStatus(),500);
+    toast('KYC submit ho gaya! Admin review karega.','success');
+    renderKYCSection();renderProfile();
+    setTimeout(()=>checkKYCStatus(),400);
+
   }catch(e){
-    console.error('KYC submit error:',e);
-    toast('Submit failed: '+e.message,'error');
-    if(btn){btn.disabled=false;btn.textContent='Submit for Review →';}
+    console.error('KYC error:',e);
+    toast('Error: '+e.message,'error');
+  }finally{
+    btn.disabled=false;
+    btn.textContent='Submit for Review →';
   }
 }
 
-async function uploadKYCImages(){
-  try{
-    if(KYC_DATA.panFile){
-      const ext=KYC_DATA.panFile.name.split('.').pop();
-      const {data}=await db.storage.from('kyc-documents').upload(
-        'pan/'+CU.id+'_'+Date.now()+'.'+ext,
-        KYC_DATA.panFile,{upsert:true}
-      );
-      if(data?.path)await db.from('kyc_submissions').update({pan_photo_url:data.path}).eq('user_id',CU.id);
-    }
-  }catch(e){console.log('PAN upload:',e.message);}
-  try{
-    if(KYC_DATA.selfieFile){
-      const ext=KYC_DATA.selfieFile.name.split('.').pop();
-      const {data}=await db.storage.from('kyc-documents').upload(
-        'selfie/'+CU.id+'_'+Date.now()+'.'+ext,
-        KYC_DATA.selfieFile,{upsert:true}
-      );
-      if(data?.path)await db.from('kyc_submissions').update({selfie_url:data.path}).eq('user_id',CU.id);
-    }
-  }catch(e){console.log('Selfie upload:',e.message);}
+async function submitKYCFinal(faceScore,faceNotes){
+  await submitKYCSimple();
 }
 
 async function sendKYCOTP(){
