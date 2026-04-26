@@ -750,11 +750,11 @@ const db=createClient(SB_URL,SB_KEY);
 // ════════════════════════════════════════════════
 // SECURITY
 // ════════════════════════════════════════════════
-document.addEventListener('contextmenu',e=>e.preventDefault());
-document.addEventListener('keydown',e=>{
-  if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
-});
-let _dt=0;
+
+
+
+
+
 
 
 // ════════════════════════════════════════════════
@@ -1337,7 +1337,7 @@ async function submitKYCSimple(){
   try{
     await submitKYCFinal(0,'Manual admin review');
   }catch(e){
-    toast('Error: '+e.message,'error');
+    toast('Submit failed: '+e.message,'error');
     console.error('KYC error:',e);
   }finally{
     btn.disabled=false;
@@ -1349,21 +1349,21 @@ async function submitKYCFinal(faceScore,faceNotes){
   if(!CU){toast('Login karo pehle','error');return;}
 
   const bankDetails={
-    bank_account_number:document.getElementById('kAccNum').value,
-    bank_ifsc:document.getElementById('kIFSC').value.toUpperCase(),
-    bank_holder_name:document.getElementById('kBankHolder').value,
-    bank_name:document.getElementById('kBankName').value
+    bank_account_number:document.getElementById('kAccNum').value||'',
+    bank_ifsc:(document.getElementById('kIFSC').value||'').toUpperCase(),
+    bank_holder_name:document.getElementById('kBankHolder').value||'',
+    bank_name:document.getElementById('kBankName').value||''
   };
 
   const kycData={
     user_id:CU.id,
-    full_name:document.getElementById('kName').value,
+    full_name:document.getElementById('kName').value||'',
     date_of_birth:document.getElementById('kDOB').value||null,
-    mobile:document.getElementById('kPhone').value,
+    mobile:document.getElementById('kPhone').value||'',
     mobile_verified:KYC_DATA.mobileVerified||false,
-    pan_number:document.getElementById('kPAN').value.toUpperCase(),
+    pan_number:(document.getElementById('kPAN').value||'').toUpperCase(),
     pan_photo_url:'',
-    aadhaar_number:document.getElementById('kAadhaar').value.replace(/\s/g,'')||null,
+    aadhaar_number:(document.getElementById('kAadhaar').value||'').replace(/\s/g,'')||null,
     bank_account_number:bankDetails.bank_account_number,
     bank_ifsc:bankDetails.bank_ifsc,
     bank_holder_name:bankDetails.bank_holder_name,
@@ -1377,8 +1377,10 @@ async function submitKYCFinal(faceScore,faceNotes){
     submitted_at:new Date().toISOString()
   };
 
-  // INSERT — if exists update, no upsert conflict needed
-  const {data:existing}=await db.from('kyc_submissions').select('id').eq('user_id',CU.id).single();
+  // Check if record exists — use INSERT or UPDATE accordingly (no upsert/onConflict)
+  const {data:existing,error:selErr}=await db.from('kyc_submissions').select('id').eq('user_id',CU.id).maybeSingle();
+  if(selErr){console.error('Select error:',selErr);throw new Error(selErr.message);}
+
   let kycErr;
   if(existing){
     const {error}=await db.from('kyc_submissions').update(kycData).eq('user_id',CU.id);
@@ -1387,8 +1389,9 @@ async function submitKYCFinal(faceScore,faceNotes){
     const {error}=await db.from('kyc_submissions').insert(kycData);
     kycErr=error;
   }
-  if(kycErr){console.error('DB error:',kycErr);throw new Error(kycErr.message);}
+  if(kycErr){console.error('KYC DB error:',kycErr);throw new Error(kycErr.message);}
 
+  // Update profile
   await db.from('users_profile').update({
     kyc_status:'submitted',
     kyc_submitted_at:new Date().toISOString(),
@@ -1404,38 +1407,37 @@ async function submitKYCFinal(faceScore,faceNotes){
   renderKYCSection();renderProfile();
   setTimeout(()=>checkKYCStatus(),400);
 
-  // Background photo upload
+  // Background photo upload (non-blocking — user already done)
   const userId=CU.id;
   const panFile=KYC_DATA.panFile;
   const selfieFile=KYC_DATA.selfieFile;
   setTimeout(async()=>{
-    let panUrl='',selfieUrl='';
     try{
+      let panUrl='',selfieUrl='';
       if(panFile){
         const ext=panFile.name.split('.').pop()||'jpg';
         const {data}=await Promise.race([
-          db.storage.from('kyc-documents').upload(`pan/${userId}_${Date.now()}.${ext}`,panFile,{upsert:true}),
+          db.storage.from('kyc-documents').upload('pan/'+userId+'_'+Date.now()+'.'+ext,panFile,{upsert:true}),
           new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
         ]);
         panUrl=data?.path||'';
       }
-    }catch(e){console.log('PAN bg:',e.message);}
-    try{
       if(selfieFile){
         const ext=selfieFile.name.split('.').pop()||'jpg';
         const {data}=await Promise.race([
-          db.storage.from('kyc-documents').upload(`selfie/${userId}_${Date.now()}.${ext}`,selfieFile,{upsert:true}),
+          db.storage.from('kyc-documents').upload('selfie/'+userId+'_'+Date.now()+'.'+ext,selfieFile,{upsert:true}),
           new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
         ]);
         selfieUrl=data?.path||'';
       }
-    }catch(e){console.log('Selfie bg:',e.message);}
-    if(panUrl||selfieUrl){
-      const upd={};
-      if(panUrl)upd.pan_photo_url=panUrl;
-      if(selfieUrl)upd.selfie_url=selfieUrl;
-      await db.from('kyc_submissions').update(upd).eq('user_id',userId);
-    }
+      if(panUrl||selfieUrl){
+        const upd={};
+        if(panUrl)upd.pan_photo_url=panUrl;
+        if(selfieUrl)upd.selfie_url=selfieUrl;
+        await db.from('kyc_submissions').update(upd).eq('user_id',userId);
+        console.log('Photos uploaded in background');
+      }
+    }catch(e){console.log('Background upload:',e.message);}
   },1000);
 }
 
