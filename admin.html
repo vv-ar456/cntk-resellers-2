@@ -817,22 +817,29 @@ function renderKYC(){
   }).join(''):'<div class="empty"><p>No KYC applications</p></div>';
 }
 
-function imgOrLink(url,label){
-  if(!url||url==='pending_upload')return '';
-  const src=url.startsWith('http')?url:(db.storage.from('kyc-documents').getPublicUrl(url).data?.publicUrl||url);
-  return `<div style="margin-bottom:10px"><div style="font-size:9px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:4px">${label}</div><img src="${src}" style="width:100%;max-height:160px;object-fit:contain;border-radius:6px;border:1px solid var(--brd);background:#000" onerror="this.outerHTML='<a href=\''+src+'\' target=\'_blank\' style=\'color:var(--amb);font-size:12px\'>View '+label+' ↗</a>'"></div>`;
-}
-
 function viewKYC(id){
   const k=kycList.find(x=>x.id===id);if(!k)return;
+  // URLs are already full public URLs
+  const panSrc=k.pan_photo_url&&!['uploading','pending_upload','test',''].includes(k.pan_photo_url)?
+    (k.pan_photo_url.startsWith('http')?k.pan_photo_url:'https://szvnnkukkgqddaahrwui.supabase.co/storage/v1/object/public/kyc-documents/'+k.pan_photo_url):'';
+  const selfieSrc=k.selfie_url&&!['uploading','pending_upload','test',''].includes(k.selfie_url)?
+    (k.selfie_url.startsWith('http')?k.selfie_url:'https://szvnnkukkgqddaahrwui.supabase.co/storage/v1/object/public/kyc-documents/'+k.selfie_url):'';
   document.getElementById('kycModBody').innerHTML=`
     <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
       <div class="ai-chip ${k.ai_pan_valid?'pass':'fail'}">PAN: ${k.ai_pan_valid?'✓ Valid':'✗ Invalid'}</div>
       <div class="ai-chip ${k.mobile_verified?'pass':'warn'}">Phone: ${k.mobile_verified?'✓ Verified':'Unverified'}</div>
-      <div class="badge ${k.status==='approved'?'b-grn':k.status==='rejected'?'b-red':'b-amb'}">${(k.status||'submitted').toUpperCase()}</div>
+      <div class="ai-chip ${k.status==='approved'?'pass':k.status==='rejected'?'fail':'warn'}">${(k.status||'submitted').toUpperCase()}</div>
     </div>
-    ${imgOrLink(k.pan_photo_url,'PAN CARD')}
-    ${imgOrLink(k.selfie_url,'SELFIE')}
+    ${panSrc?`<div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:6px">PAN CARD</div>
+      <img src="${panSrc}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--brd);background:#0a0c10">
+      <a href="${panSrc}" target="_blank" style="font-size:11px;color:var(--amb);display:block;margin-top:4px">View full ↗</a>
+    </div>`:''}
+    ${selfieSrc?`<div style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:6px">SELFIE</div>
+      <img src="${selfieSrc}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;border:1px solid var(--brd)">
+      <a href="${selfieSrc}" target="_blank" style="font-size:11px;color:var(--amb);display:block;margin-top:4px">View full ↗</a>
+    </div>`:''}
     <div class="kd-row"><span class="kd-l">Name</span><span class="kd-v">${k.full_name||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">DOB</span><span class="kd-v">${k.date_of_birth||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">Mobile</span><span class="kd-v">${k.mobile||'—'}</span></div>
@@ -842,10 +849,10 @@ function viewKYC(id){
     <div class="kd-row"><span class="kd-l">Account</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.bank_account_number||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">IFSC</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.bank_ifsc||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">Submitted</span><span class="kd-v">${k.submitted_at?new Date(k.submitted_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</span></div>
-    ${k.admin_note?`<div class="kd-row"><span class="kd-l">Prev Note</span><span class="kd-v" style="color:var(--sub)">${k.admin_note}</span></div>`:''}
+    ${k.admin_note?`<div class="kd-row"><span class="kd-l">Note</span><span class="kd-v" style="color:var(--sub)">${k.admin_note}</span></div>`:''}
     <div class="fg" style="margin-top:12px"><label class="lbl">Admin Note (optional)</label><input class="inp" id="kycNote" placeholder="Rejection reason ya comment…"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
-      ${k.status!=='approved'?`<button class="btn" style="flex:1;background:rgba(0,230,122,.15);color:var(--grn);border:1px solid rgba(0,230,122,.3)" onclick="reviewKYC('${k.id}','approved')">✓ Approve</button>`:'<div style="flex:1;text-align:center;font-size:12px;color:var(--grn);padding:12px">✓ Already Approved</div>'}
+      ${k.status!=='approved'?`<button class="btn btn-g" style="flex:1" onclick="reviewKYC('${k.id}','approved')">✓ Approve</button>`:'<div style="flex:1;text-align:center;font-size:12px;color:var(--grn);padding:12px">✓ Approved</div>'}
       ${k.status!=='rejected'?`<button class="btn btn-d" style="flex:1" onclick="reviewKYC('${k.id}','rejected')">✗ Reject</button>`:''}
     </div>`;
   document.getElementById('kycMod').classList.add('open');
@@ -856,15 +863,15 @@ function getSBUrl(bucket,path){const {data}=db.storage.from(bucket).getPublicUrl
 async function reviewKYC(id,status){
   const note=document.getElementById('kycNote')?.value||'';
   const btns=document.querySelectorAll('#kycModBody .btn');
-  btns.forEach(b=>{b.disabled=true;});
+  btns.forEach(b=>b.disabled=true);
   try{
-    const {error:kycErr}=await db.from('kyc_submissions').update({
-      status,admin_note:note,reviewed_at:new Date().toISOString()
-    }).eq('id',id);
-    if(kycErr)throw kycErr;
+    const SERVICE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
+    const dbA=supabase.createClient('https://szvnnkukkgqddaahrwui.supabase.co',SERVICE_KEY);
+    const {error:e1}=await dbA.from('kyc_submissions').update({status,admin_note:note,reviewed_at:new Date().toISOString()}).eq('id',id);
+    if(e1)throw e1;
     const k=kycList.find(x=>x.id===id);
     if(k?.user_id){
-      await db.from('users_profile').update({kyc_status:status}).eq('id',k.user_id);
+      await dbA.from('users_profile').update({kyc_status:status}).eq('id',k.user_id);
       k.status=status;
     }
     closeMod('kycMod');
@@ -872,10 +879,9 @@ async function reviewKYC(id,status){
     await loadKYC();
   }catch(e){
     toast('Error: '+e.message,'error');
-    btns.forEach(b=>{b.disabled=false;});
+    btns.forEach(b=>b.disabled=false);
   }
 }
-
 
 // ── HELPDESK ──
 function renderHD(){
