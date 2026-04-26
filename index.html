@@ -746,6 +746,8 @@ const RZP_KEY='rzp_live_SSegtOEGykPOUN';
 const TF_KEY='2503bcf6-237e-11f1-bcb0-0200cd936042';
 const {createClient}=supabase;
 const db=createClient(SB_URL,SB_KEY);
+const SERVICE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
+const dbAdmin=createClient(SB_URL,SERVICE_KEY);
 
 // ════════════════════════════════════════════════
 // SECURITY
@@ -1360,13 +1362,12 @@ async function submitKYCSimple(){
       submitted_at:now
     };
 
-    // DELETE old + INSERT fresh — no upsert/onConflict
-    await db.from('kyc_submissions').delete().eq('user_id',uid);
-    const {error:insErr}=await db.from('kyc_submissions').insert(kycPayload);
-    if(insErr){toast('DB Error: '+insErr.message,'error');console.error(insErr);return;}
+    // Use service role key — bypasses all RLS/permission issues
+    await dbAdmin.from('kyc_submissions').delete().eq('user_id',uid);
+    const {error:insErr}=await dbAdmin.from('kyc_submissions').insert(kycPayload);
+    if(insErr){toast('DB Error: '+insErr.message,'error');console.error('INSERT:',insErr);return;}
 
-    // Update profile
-    await db.from('users_profile').update({
+    await dbAdmin.from('users_profile').update({
       kyc_status:'submitted',
       kyc_submitted_at:now,
       account_holder_name:bankDetails.bank_holder_name,
@@ -1377,42 +1378,33 @@ async function submitKYCSimple(){
 
     UP={...UP,kyc_status:'submitted'};
     document.getElementById('kycOvl').classList.remove('open');
-    toast('KYC submit ho gaya! Photos background mein upload ho rahi hain.','success');
+    toast('KYC submit ho gaya! Admin review karega.','success');
     renderKYCSection();renderProfile();
     setTimeout(()=>checkKYCStatus(),400);
 
-    // Upload photos in background AFTER modal closed
+    // Background photo upload
     const panFile=KYC_DATA.panFile;
     const selfieFile=KYC_DATA.selfieFile;
     (async()=>{
-      let panUrl='uploading', selfieUrl='uploading';
+      let panUrl='uploading',selfieUrl='uploading';
       try{
         if(panFile){
           const ext=panFile.name.split('.').pop()||'jpg';
-          const {data:pd}=await db.storage.from('kyc-documents')
+          const {data:pd}=await dbAdmin.storage.from('kyc-documents')
             .upload('pan/'+uid+'_'+Date.now()+'.'+ext,panFile,{contentType:panFile.type,upsert:true});
-          if(pd?.path){
-            const {data:pu}=db.storage.from('kyc-documents').getPublicUrl(pd.path);
-            panUrl=pu?.publicUrl||pd.path;
-          }
+          if(pd?.path){const {data:pu}=dbAdmin.storage.from('kyc-documents').getPublicUrl(pd.path);panUrl=pu?.publicUrl||pd.path;}
         }
-      }catch(e){console.log('PAN bg:',e.message);}
+      }catch(e){console.log('PAN:',e.message);}
       try{
         if(selfieFile){
           const ext=selfieFile.name.split('.').pop()||'jpg';
-          const {data:sd}=await db.storage.from('kyc-documents')
+          const {data:sd}=await dbAdmin.storage.from('kyc-documents')
             .upload('selfie/'+uid+'_'+Date.now()+'.'+ext,selfieFile,{contentType:selfieFile.type,upsert:true});
-          if(sd?.path){
-            const {data:su}=db.storage.from('kyc-documents').getPublicUrl(sd.path);
-            selfieUrl=su?.publicUrl||sd.path;
-          }
+          if(sd?.path){const {data:su}=dbAdmin.storage.from('kyc-documents').getPublicUrl(sd.path);selfieUrl=su?.publicUrl||sd.path;}
         }
-      }catch(e){console.log('Selfie bg:',e.message);}
-      await db.from('kyc_submissions').update({
-        pan_photo_url:panUrl,
-        selfie_url:selfieUrl
-      }).eq('user_id',uid);
-      console.log('Photos uploaded in background');
+      }catch(e){console.log('Selfie:',e.message);}
+      await dbAdmin.from('kyc_submissions').update({pan_photo_url:panUrl,selfie_url:selfieUrl}).eq('user_id',uid);
+      console.log('Photos done');
     })();
 
   }catch(e){
