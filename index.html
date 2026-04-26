@@ -746,12 +746,16 @@ const RZP_KEY='rzp_live_SSegtOEGykPOUN';
 const TF_KEY='2503bcf6-237e-11f1-bcb0-0200cd936042';
 const {createClient}=supabase;
 const db=createClient(SB_URL,SB_KEY);
-const SERVICE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
-const dbAdmin=createClient(SB_URL,SERVICE_KEY);
 
 // ════════════════════════════════════════════════
 // SECURITY
 // ════════════════════════════════════════════════
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{
+  if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
+});
+let _dt=0;
+setInterval(()=>{const t=performance.now();debugger;if(performance.now()-t>150){document.body.innerHTML='<div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#080a0e;color:#ff4757;font-family:monospace;font-size:16px;text-align:center;padding:20px">⚠️ Security violation detected.<br>Access denied.</div>';};},5000);
 
 // ════════════════════════════════════════════════
 // STATE
@@ -1328,28 +1332,38 @@ async function handleKYCFile(event,type){
 
 async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
-  if(!KYC_DATA.selfieFile){toast('Selfie upload karo pehle','error');return;}
-  btn.disabled=true;btn.innerHTML='<div class="spin"></div> Saving…';
+  if(!KYC_DATA.selfieFile){toast('Upload selfie first','error');return;}
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';
+  await submitKYCFinal(0,'Manual admin review');
+  btn.disabled=false;btn.textContent='Submit for Review →';
+}
+
+
+async function submitKYCFinal(faceScore,faceNotes){
+  if(!CU)return;
+  const btn=document.getElementById('kycSubmitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';}
   try{
     const g=id=>(document.getElementById(id)?.value||'').trim();
-    const now=new Date().toISOString();
-    const uid=CU.id;
     const bankDetails={
       bank_account_number:g('kAccNum'),
       bank_ifsc:g('kIFSC').toUpperCase(),
       bank_holder_name:g('kBankHolder'),
       bank_name:g('kBankName')
     };
+    const now=new Date().toISOString();
+    // Step 1: Check if KYC record exists
+    const {data:existing}=await db.from('kyc_submissions').select('id').eq('user_id',CU.id).maybeSingle();
     const kycPayload={
-      user_id:uid,
+      user_id:CU.id,
       full_name:g('kName'),
       date_of_birth:g('kDOB')||null,
       mobile:g('kPhone'),
       mobile_verified:KYC_DATA.mobileVerified||false,
       pan_number:g('kPAN').toUpperCase(),
-      pan_photo_url:'uploading',
+      pan_photo_url:'pending_upload',
       aadhaar_number:g('kAadhaar').replace(/[^0-9]/g,'')||null,
-      selfie_url:'uploading',
+      selfie_url:'pending_upload',
       bank_account_number:bankDetails.bank_account_number,
       bank_ifsc:bankDetails.bank_ifsc,
       bank_holder_name:bankDetails.bank_holder_name,
@@ -1361,63 +1375,68 @@ async function submitKYCSimple(){
       status:'submitted',
       submitted_at:now
     };
-
-    // Use service role key — bypasses all RLS/permission issues
-    await dbAdmin.from('kyc_submissions').delete().eq('user_id',uid);
-    const {error:insErr}=await dbAdmin.from('kyc_submissions').insert(kycPayload);
-    if(insErr){toast('DB Error: '+insErr.message,'error');console.error('INSERT:',insErr);return;}
-
-    await dbAdmin.from('users_profile').update({
+    let kycErr;
+    if(existing){
+      const {error}=await db.from('kyc_submissions').update(kycPayload).eq('user_id',CU.id);
+      kycErr=error;
+    }else{
+      const {error}=await db.from('kyc_submissions').insert(kycPayload);
+      kycErr=error;
+    }
+    if(kycErr){
+      console.error('KYC DB error:',kycErr);
+      throw new Error(kycErr.message);
+    }
+    // Step 2: Update profile
+    await db.from('users_profile').update({
       kyc_status:'submitted',
       kyc_submitted_at:now,
       account_holder_name:bankDetails.bank_holder_name,
       bank_name:bankDetails.bank_name,
       account_number:bankDetails.bank_account_number,
       ifsc_code:bankDetails.bank_ifsc
-    }).eq('id',uid);
-
-    UP={...UP,kyc_status:'submitted'};
+    }).eq('id',CU.id);
+    UP={...UP,kyc_status:'submitted',
+      account_holder_name:bankDetails.bank_holder_name,
+      bank_name:bankDetails.bank_name,
+      account_number:bankDetails.bank_account_number,
+      ifsc_code:bankDetails.bank_ifsc
+    };
+    // Step 3: Upload images in background - completely non-blocking
+    setTimeout(()=>uploadKYCImages(),100);
     document.getElementById('kycOvl').classList.remove('open');
-    toast('KYC submit ho gaya! Admin review karega.','success');
-    renderKYCSection();renderProfile();
-    setTimeout(()=>checkKYCStatus(),400);
-
-    // Background photo upload
-    const panFile=KYC_DATA.panFile;
-    const selfieFile=KYC_DATA.selfieFile;
-    (async()=>{
-      let panUrl='uploading',selfieUrl='uploading';
-      try{
-        if(panFile){
-          const ext=panFile.name.split('.').pop()||'jpg';
-          const {data:pd}=await dbAdmin.storage.from('kyc-documents')
-            .upload('pan/'+uid+'_'+Date.now()+'.'+ext,panFile,{contentType:panFile.type,upsert:true});
-          if(pd?.path){const {data:pu}=dbAdmin.storage.from('kyc-documents').getPublicUrl(pd.path);panUrl=pu?.publicUrl||pd.path;}
-        }
-      }catch(e){console.log('PAN:',e.message);}
-      try{
-        if(selfieFile){
-          const ext=selfieFile.name.split('.').pop()||'jpg';
-          const {data:sd}=await dbAdmin.storage.from('kyc-documents')
-            .upload('selfie/'+uid+'_'+Date.now()+'.'+ext,selfieFile,{contentType:selfieFile.type,upsert:true});
-          if(sd?.path){const {data:su}=dbAdmin.storage.from('kyc-documents').getPublicUrl(sd.path);selfieUrl=su?.publicUrl||sd.path;}
-        }
-      }catch(e){console.log('Selfie:',e.message);}
-      await dbAdmin.from('kyc_submissions').update({pan_photo_url:panUrl,selfie_url:selfieUrl}).eq('user_id',uid);
-      console.log('Photos done');
-    })();
-
+    toast('KYC submitted! Admin will review soon.','success');
+    renderKYCSection();
+    renderProfile();
+    setTimeout(()=>checkKYCStatus(),500);
   }catch(e){
-    console.error('KYC error:',e);
-    toast('Error: '+e.message,'error');
-  }finally{
-    btn.disabled=false;
-    btn.textContent='Submit for Review →';
+    console.error('KYC submit error:',e);
+    toast('Submit failed: '+e.message,'error');
+    if(btn){btn.disabled=false;btn.textContent='Submit for Review →';}
   }
 }
 
-async function submitKYCFinal(faceScore,faceNotes){
-  await submitKYCSimple();
+async function uploadKYCImages(){
+  try{
+    if(KYC_DATA.panFile){
+      const ext=KYC_DATA.panFile.name.split('.').pop();
+      const {data}=await db.storage.from('kyc-documents').upload(
+        'pan/'+CU.id+'_'+Date.now()+'.'+ext,
+        KYC_DATA.panFile,{upsert:true}
+      );
+      if(data?.path)await db.from('kyc_submissions').update({pan_photo_url:data.path}).eq('user_id',CU.id);
+    }
+  }catch(e){console.log('PAN upload:',e.message);}
+  try{
+    if(KYC_DATA.selfieFile){
+      const ext=KYC_DATA.selfieFile.name.split('.').pop();
+      const {data}=await db.storage.from('kyc-documents').upload(
+        'selfie/'+CU.id+'_'+Date.now()+'.'+ext,
+        KYC_DATA.selfieFile,{upsert:true}
+      );
+      if(data?.path)await db.from('kyc_submissions').update({selfie_url:data.path}).eq('user_id',CU.id);
+    }
+  }catch(e){console.log('Selfie upload:',e.message);}
 }
 
 async function sendKYCOTP(){
@@ -1565,9 +1584,9 @@ function renderOrderStep(){
       </div>
       <div id="callOptWrap" style="display:none">
         <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--amb)">📞 Call Confirmation</div>
-        <div class="call-opt ${!OS.callConf?'sel':''}" onclick="OS.callConf=false;OS.callRec=false;renderOrderStep()"><div class="co-ttl">No Call</div><div class="co-price">₹0</div></div>
-        <div class="call-opt ${OS.callConf&&!OS.callRec?'sel':''}" onclick="OS.callConf=true;OS.callRec=false;renderOrderStep()"><div class="co-ttl">Call Confirmation</div><div class="co-sub">Confirm each order</div><div class="co-price">₹5/order</div></div>
-        <div class="call-opt ${OS.callConf&&OS.callRec?'sel':''}" onclick="OS.callConf=true;OS.callRec=true;renderOrderStep()"><div class="co-ttl">Call + Recording</div><div class="co-sub">With recorded proof</div><div class="co-price">₹7/order</div></div>
+        <div class="call-opt ${!OS.callConf?'sel':''}" onclick="OS.codCount=parseInt(document.getElementById('codIn')?.value)||OS.codCount;OS.prepaidCount=parseInt(document.getElementById('preIn')?.value)||OS.prepaidCount;OS.callConf=false;OS.callRec=false;renderOrderStep()"><div class="co-ttl">No Call</div><div class="co-price">₹0</div></div>
+        <div class="call-opt ${OS.callConf&&!OS.callRec?'sel':''}" onclick="OS.codCount=parseInt(document.getElementById('codIn')?.value)||OS.codCount;OS.prepaidCount=parseInt(document.getElementById('preIn')?.value)||OS.prepaidCount;OS.callConf=true;OS.callRec=false;renderOrderStep()"><div class="co-ttl">Call Confirmation</div><div class="co-sub">Confirm each order</div><div class="co-price">₹5/order</div></div>
+        <div class="call-opt ${OS.callConf&&OS.callRec?'sel':''}" onclick="OS.codCount=parseInt(document.getElementById('codIn')?.value)||OS.codCount;OS.prepaidCount=parseInt(document.getElementById('preIn')?.value)||OS.prepaidCount;OS.callConf=true;OS.callRec=true;renderOrderStep()"><div class="co-ttl">Call + Recording</div><div class="co-sub">With recorded proof</div><div class="co-price">₹7/order</div></div>
       </div>
       <button class="btn btn-a" id="s4btn" onclick="goStep5()" disabled>Review & Pay →</button>
       <button class="btn btn-g" onclick="OS.step=3;renderOrderStep()" style="margin-top:8px">← Back</button>`;
@@ -1606,10 +1625,9 @@ function renderOrderStep(){
           <div id="walletSplit" style="font-size:11px;color:var(--sub);margin-top:7px"></div>
         </div>`:''}
       <div class="pg2">
-        <div class="pi3"><div class="em">📹</div><div class="pt">Returns</div><div class="pd">4-day, video req.</div></div>
-        <div class="pi3"><div class="em">🚫</div><div class="pt">COD Fee</div><div class="pd">Non-refundable.</div></div>
+        <div class="pi3"><div class="em">📹</div><div class="pt">Returns</div><div class="pd">4-day return window. Product unboxing video required for all return claims.</div></div>
+        <div class="pi3"><div class="em">🚫</div><div class="pt">COD Fee</div><div class="pd">COD charge is non-refundable even on return or cancellation.</div></div>
         <div class="pi3"><div class="em">🔒</div><div class="pt">Secure</div><div class="pd">Razorpay.</div></div>
-        <div class="pi3"><div class="em">💰</div><div class="pt">Profit</div><div class="pd">Wallet in 72h.</div></div>
       </div>
       <button class="btn btn-a" id="payBtn" onclick="doPayment(${subtotal})">
         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
