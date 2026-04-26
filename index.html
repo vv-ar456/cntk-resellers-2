@@ -1334,120 +1334,85 @@ async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
   if(!KYC_DATA.selfieFile){toast('Upload selfie first','error');return;}
   btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';
-  try{
-    await submitKYCFinal(0,'Manual admin review');
-  }catch(e){
-    console.error('KYC submit error:',e);
-    toast('Error: '+e.message,'error');
-  }
+  await submitKYCFinal(0,'Manual admin review');
   btn.disabled=false;btn.textContent='Submit for Review →';
 }
 
-// Upload image to base64 string (no storage needed — saves as data in DB notes)
-async function fileToBase64(file){
-  return new Promise((res)=>{
-    const r=new FileReader();
-    r.onload=e=>res(e.target.result);
-    r.onerror=()=>res('');
-    r.readAsDataURL(file);
-  });
-}
-
-// Upload with 10s hard timeout
-async function tryStorageUpload(bucket,path,file){
-  try{
-    const result=await Promise.race([
-      db.storage.from(bucket).upload(path,file,{upsert:true,cacheControl:'3600'}),
-      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000))
-    ]);
-    return result?.data?.path||'';
-  }catch(e){
-    console.log(`Storage upload skipped (${e.message})`);
-    return '';
-  }
-}
 
 async function submitKYCFinal(faceScore,faceNotes){
-  if(!CU){toast('Not logged in','error');return;}
-  toast('KYC save ho raha hai…','info');
-
-  // Step 1: Save selfie as base64 in memory (backup if storage fails)
-  let selfieB64='';
-  if(KYC_DATA.selfieFile){
-    selfieB64=await fileToBase64(KYC_DATA.selfieFile);
+  if(!CU)return;
+  const btn=document.getElementById('kycSubmitBtn');
+  if(btn){btn.disabled=true;btn.innerHTML='<div class="spin"></div> Submitting…';}
+  try{
+    const bankDetails={
+      bank_account_number:(document.getElementById('kAccNum')?.value||'').trim(),
+      bank_ifsc:(document.getElementById('kIFSC')?.value||'').toUpperCase().trim(),
+      bank_holder_name:(document.getElementById('kBankHolder')?.value||'').trim(),
+      bank_name:(document.getElementById('kBankName')?.value||'').trim()
+    };
+    const kycData={
+      user_id:CU.id,
+      full_name:(document.getElementById('kName')?.value||'').trim(),
+      date_of_birth:document.getElementById('kDOB')?.value||null,
+      mobile:(document.getElementById('kPhone')?.value||'').trim(),
+      mobile_verified:KYC_DATA.mobileVerified||false,
+      pan_number:(document.getElementById('kPAN')?.value||'').toUpperCase().trim(),
+      pan_photo_url:'',
+      aadhaar_number:(document.getElementById('kAadhaar')?.value||'').replace(/\s/g,'')||null,
+      selfie_url:'',
+      ...bankDetails,
+      ai_pan_valid:validatePAN(document.getElementById('kPAN')?.value||''),
+      ai_face_match:false,
+      ai_face_score:0,
+      ai_notes:'Manual admin review',
+      status:'submitted',
+      submitted_at:new Date().toISOString()
+    };
+    // Save KYC record
+    const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
+    if(kycErr){console.error('KYC upsert error:',kycErr);throw kycErr;}
+    // Update user profile
+    const {error:profErr}=await db.from('users_profile').update({
+      kyc_status:'submitted',
+      kyc_submitted_at:new Date().toISOString(),
+      account_holder_name:bankDetails.bank_holder_name,
+      bank_name:bankDetails.bank_name,
+      account_number:bankDetails.bank_account_number,
+      ifsc_code:bankDetails.bank_ifsc
+    }).eq('id',CU.id);
+    if(profErr)console.warn('Profile update warn:',profErr);
+    UP={...UP,kyc_status:'submitted',...bankDetails,account_number:bankDetails.bank_account_number,ifsc_code:bankDetails.bank_ifsc};
+    // Upload images in background (non-blocking)
+    uploadKYCImages();
+    document.getElementById('kycOvl').classList.remove('open');
+    toast('KYC submitted! Admin will review soon.','success');
+    renderKYCSection();renderProfile();
+    setTimeout(()=>checkKYCStatus(),300);
+  }catch(e){
+    console.error('submitKYCFinal error:',e);
+    toast('Submit failed: '+e.message,'error');
+    if(btn){btn.disabled=false;btn.textContent='Submit for Review →';}
   }
+}
 
-  // Step 2: Try storage upload with timeout (non-blocking)
-  let panUrl='',selfieUrl='';
-  if(KYC_DATA.panFile){
-    const ext=KYC_DATA.panFile.name.split('.').pop()||'jpg';
-    panUrl=await tryStorageUpload('kyc-documents',`pan/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.panFile);
-  }
-  if(KYC_DATA.selfieFile){
-    const ext=KYC_DATA.selfieFile.name.split('.').pop()||'jpg';
-    selfieUrl=await tryStorageUpload('kyc-documents',`selfie/${CU.id}_${Date.now()}.${ext}`,KYC_DATA.selfieFile);
-  }
-
-  // Step 3: Save to DB — this is the critical part, always runs
-  const bankDetails={
-    bank_account_number:document.getElementById('kAccNum')?.value||'',
-    bank_ifsc:(document.getElementById('kIFSC')?.value||'').toUpperCase(),
-    bank_holder_name:document.getElementById('kBankHolder')?.value||'',
-    bank_name:document.getElementById('kBankName')?.value||''
-  };
-
-  const kycData={
-    user_id:CU.id,
-    full_name:document.getElementById('kName')?.value||'',
-    date_of_birth:document.getElementById('kDOB')?.value||null,
-    mobile:document.getElementById('kPhone')?.value||'',
-    mobile_verified:KYC_DATA.mobileVerified||false,
-    pan_number:(document.getElementById('kPAN')?.value||'').toUpperCase(),
-    pan_photo_url:panUrl,
-    aadhaar_number:(document.getElementById('kAadhaar')?.value||'').replace(/\s/g,'')||null,
-    ...bankDetails,
-    selfie_url:selfieUrl,
-    // Store base64 selfie in notes if storage failed
-    ai_notes:(selfieUrl?'':`SELFIE_B64:${selfieB64.substring(0,200)}`)+' | '+(faceNotes||'Manual review'),
-    ai_pan_valid:validatePAN(document.getElementById('kPAN')?.value||''),
-    ai_face_match:faceScore>=30,
-    ai_face_score:faceScore,
-    status:'submitted',
-    submitted_at:new Date().toISOString()
-  };
-
-  const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
-  if(kycErr){
-    console.error('kyc_submissions upsert error:',kycErr);
-    throw new Error(kycErr.message);
-  }
-
-  // Step 4: Update user profile
-  const {error:profErr}=await db.from('users_profile').update({
-    kyc_status:'submitted',
-    kyc_submitted_at:new Date().toISOString(),
-    account_holder_name:bankDetails.bank_holder_name,
-    bank_name:bankDetails.bank_name,
-    account_number:bankDetails.bank_account_number,
-    ifsc_code:bankDetails.bank_ifsc
-  }).eq('id',CU.id);
-
-  if(profErr){console.warn('Profile update warning:',profErr.message);}
-
-  UP={...UP,
-    kyc_status:'submitted',
-    account_holder_name:bankDetails.bank_holder_name,
-    bank_name:bankDetails.bank_name,
-    account_number:bankDetails.bank_account_number,
-    ifsc_code:bankDetails.bank_ifsc
-  };
-
-  // Step 5: Close modal & show success
-  document.getElementById('kycOvl').classList.remove('open');
-  toast('KYC submit ho gaya! Admin review karega.','success');
-  renderKYCSection();
-  renderProfile();
-  setTimeout(()=>checkKYCStatus(),400);
+async function uploadKYCImages(){
+  // Upload images silently in background after KYC is submitted
+  try{
+    if(KYC_DATA.panFile){
+      const ext=KYC_DATA.panFile.name.split('.').pop();
+      const path=`pan/${CU.id}_${Date.now()}.${ext}`;
+      const {data}=await db.storage.from('kyc-documents').upload(path,KYC_DATA.panFile,{upsert:true});
+      if(data?.path)await db.from('kyc_submissions').update({pan_photo_url:data.path}).eq('user_id',CU.id);
+    }
+  }catch(e){console.log('PAN bg upload:',e.message);}
+  try{
+    if(KYC_DATA.selfieFile){
+      const ext=KYC_DATA.selfieFile.name.split('.').pop();
+      const path=`selfie/${CU.id}_${Date.now()}.${ext}`;
+      const {data}=await db.storage.from('kyc-documents').upload(path,KYC_DATA.selfieFile,{upsert:true});
+      if(data?.path)await db.from('kyc_submissions').update({selfie_url:data.path}).eq('user_id',CU.id);
+    }
+  }catch(e){console.log('Selfie bg upload:',e.message);}
 }
 
 async function sendKYCOTP(){
@@ -1569,7 +1534,11 @@ function renderOrderStep(){
   else if(s===3){
     const ai=OS.parsed;
     body.innerHTML=`${dots(3)}<div class="stag">Step 3 — Price</div><div class="sq">Your selling price per unit?</div>
-      <div class="pb2"><div class="pf">✅ ${ai.qty} unit(s) found</div><div class="pi2">MRP: ₹${CUR_PROD.price} &nbsp;·&nbsp; Matched: ${ai.matchedRows||ai.qty} rows${ai.note?`<br>💡 ${ai.note}`:''}</div></div>
+      <div class="pb2">
+        <div class="pf">✅ ${ai.qty} unit(s) found</div>
+        <div class="pi2">MRP: ₹${CUR_PROD.price} &nbsp;·&nbsp; Matched: ${ai.matchedRows||ai.qty} rows${ai.note?`<br>💡 ${ai.note}`:''}</div>
+        ${ai.addresses&&ai.addresses.length?`<div class="pi2" style="margin-top:6px;color:var(--tel)">📍 ${ai.addresses.length} customer address(es) extracted from sheet</div>`:''}
+      </div>
       <div class="fg"><label class="lbl">Your Selling Price (≥ ₹${CUR_PROD.price})</label><input class="inp" type="number" id="spIn" placeholder="₹0" min="${CUR_PROD.price}" inputmode="decimal" style="font-size:20px;font-family:'Bebas Neue'" oninput="calcProfit(this.value)"></div>
       <div id="profitShow" style="font-size:12px;min-height:18px;margin-bottom:12px"></div>
       <button class="btn btn-a" onclick="goStep4()">Continue →</button>
@@ -1690,8 +1659,30 @@ function aiParse(rows){
     }
   }
   if(matchedRows===0&&totalRows>0){note='Product not matched — counted all rows.';matchedRows=totalRows;if(qtyCol>=0){for(let i=hdr>=0?hdr+1:1;i<rows.length;i++){if(!rows[i].join('').trim())continue;const n=parseInt(String(rows[i][qtyCol]||'').replace(/\D/g,''));if(!isNaN(n)&&n>0)qty+=n;}}if(qty===0)qty=matchedRows;}
-  OS.parsed={qty:Math.max(qty,1),totalRows,matchedRows,note};
-  OS.step=3;renderOrderStep();toast(`AI found ${OS.parsed.qty} units!`,'success');
+  // Extract address details from sheet
+  const addrData={addresses:[]};
+  const addrKeys=['name','phone','address','city','state','pincode','zip','postal','landmark','district','area','street','flat','house','building'];
+  let addrHdrRow=-1,addrCols={};
+  for(let i=0;i<Math.min(rows.length,6);i++){
+    const r=rows[i].map(c=>String(c).toLowerCase().trim());
+    if(r.some(c=>addrKeys.some(k=>c.includes(k)))){
+      addrHdrRow=i;
+      r.forEach((cell,idx)=>{addrKeys.forEach(k=>{if(cell.includes(k))addrCols[k]=idx;});});
+      break;
+    }
+  }
+  if(addrHdrRow>=0){
+    for(let i=addrHdrRow+1;i<rows.length;i++){
+      const row=rows[i];if(!row.join('').trim())continue;
+      const entry={};
+      Object.entries(addrCols).forEach(([k,idx])=>{if(row[idx])entry[k]=String(row[idx]).trim();});
+      if(Object.keys(entry).length>0)addrData.addresses.push(entry);
+    }
+  }
+  OS.parsed={qty:Math.max(qty,1),totalRows,matchedRows,note,addresses:addrData.addresses};
+  OS.step=3;renderOrderStep();
+  const addrMsg=addrData.addresses.length>0?` · ${addrData.addresses.length} addresses extracted`:'';
+  toast(`AI found ${OS.parsed.qty} units${addrMsg}!`,'success');
 }
 function proceedManual(){
   const qty=parseInt(document.getElementById('manQty').value)||0;
