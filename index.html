@@ -755,7 +755,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key))||(e.ctrlKey&&e.key==='U'))e.preventDefault();
 });
 let _dt=0;
-setInterval(()=>{const t=performance.now();debugger;if(performance.now()-t>150){document.body.innerHTML='<div style="display:flex;height:100vh;align-items:center;justify-content:center;background:#080a0e;color:#ff4757;font-family:monospace;font-size:16px;text-align:center;padding:20px">⚠️ Security violation detected.<br>Access denied.</div>';};},5000);
+// anti-debugger removed
 
 // ════════════════════════════════════════════════
 // STATE
@@ -1370,10 +1370,10 @@ async function submitKYCFinal(faceScore,faceNotes){
     bank_holder_name:bankDetails.bank_holder_name,
     bank_name:bankDetails.bank_name,
     selfie_url:'',
-    ai_pan_valid:validatePAN(document.getElementById('kPAN').value||''  ),
+    ai_pan_valid:validatePAN(document.getElementById('kPAN').value||''),
     ai_face_match:faceScore>=30,
     ai_face_score:faceScore,
-    ai_notes:(faceNotes||'Manual review')+' | Photos uploading in background',
+    ai_notes:faceNotes||'Manual review',
     status:'submitted',
     submitted_at:new Date().toISOString()
   };
@@ -1381,7 +1381,6 @@ async function submitKYCFinal(faceScore,faceNotes){
   const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
   if(kycErr){console.error('DB error:',kycErr);throw new Error(kycErr.message);}
 
-  // Update profile
   await db.from('users_profile').update({
     kyc_status:'submitted',
     kyc_submitted_at:new Date().toISOString(),
@@ -1392,53 +1391,44 @@ async function submitKYCFinal(faceScore,faceNotes){
   }).eq('id',CU.id);
 
   UP={...UP,kyc_status:'submitted'};
-
-  // STEP 2: Close modal immediately — user done!
   document.getElementById('kycOvl').classList.remove('open');
-  toast('KYC submit ho gaya! Photos background mein upload ho rahe hain…','success');
+  toast('KYC submit ho gaya! Admin review karega.','success');
   renderKYCSection();renderProfile();
   setTimeout(()=>checkKYCStatus(),400);
 
-  // STEP 3: Background photo upload — non-blocking, silent
+  // STEP 2: Background photo upload — non-blocking
   const userId=CU.id;
   const panFile=KYC_DATA.panFile;
   const selfieFile=KYC_DATA.selfieFile;
-
   setTimeout(async()=>{
     let panUrl='',selfieUrl='';
     try{
       if(panFile){
         const ext=panFile.name.split('.').pop()||'jpg';
-        const path=`pan/${userId}_${Date.now()}.${ext}`;
         const {data}=await Promise.race([
-          db.storage.from('kyc-documents').upload(path,panFile,{upsert:true,cacheControl:'3600'}),
+          db.storage.from('kyc-documents').upload(`pan/${userId}_${Date.now()}.${ext}`,panFile,{upsert:true}),
           new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
         ]);
         panUrl=data?.path||'';
       }
     }catch(e){console.log('PAN bg upload:',e.message);}
-
     try{
       if(selfieFile){
         const ext=selfieFile.name.split('.').pop()||'jpg';
-        const path=`selfie/${userId}_${Date.now()}.${ext}`;
         const {data}=await Promise.race([
-          db.storage.from('kyc-documents').upload(path,selfieFile,{upsert:true,cacheControl:'3600'}),
+          db.storage.from('kyc-documents').upload(`selfie/${userId}_${Date.now()}.${ext}`,selfieFile,{upsert:true}),
           new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
         ]);
         selfieUrl=data?.path||'';
       }
     }catch(e){console.log('Selfie bg upload:',e.message);}
-
-    // Update DB with photo URLs if uploaded successfully
     if(panUrl||selfieUrl){
-      const update={ai_notes:faceNotes||'Manual review'};
-      if(panUrl)update.pan_photo_url=panUrl;
-      if(selfieUrl)update.selfie_url=selfieUrl;
-      await db.from('kyc_submissions').update(update).eq('user_id',userId);
-      console.log('Background photo upload complete:',{panUrl,selfieUrl});
+      const upd={};
+      if(panUrl)upd.pan_photo_url=panUrl;
+      if(selfieUrl)upd.selfie_url=selfieUrl;
+      await db.from('kyc_submissions').update(upd).eq('user_id',userId);
     }
-  },500);
+  },1000);
 }
 
 async function sendKYCOTP(){
