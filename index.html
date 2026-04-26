@@ -1330,29 +1330,6 @@ async function handleKYCFile(event,type){
   }
 }
 
-// Convert image file to compressed base64 (resize to max 800px to keep size small)
-function imgToBase64(file){
-  return new Promise(resolve=>{
-    const reader=new FileReader();
-    reader.onload=e=>{
-      const img=new Image();
-      img.onload=()=>{
-        const MAX=800;
-        let w=img.width,h=img.height;
-        if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;}}
-        const canvas=document.createElement('canvas');
-        canvas.width=w;canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        resolve(canvas.toDataURL('image/jpeg',0.7));
-      };
-      img.onerror=()=>resolve('');
-      img.src=e.target.result;
-    };
-    reader.onerror=()=>resolve('');
-    reader.readAsDataURL(file);
-  });
-}
-
 async function submitKYCSimple(){
   const btn=document.getElementById('kycSubmitBtn');
   if(!KYC_DATA.selfieFile){toast('Selfie upload karo pehle','error');return;}
@@ -1361,7 +1338,7 @@ async function submitKYCSimple(){
     await submitKYCFinal(0,'Manual admin review');
   }catch(e){
     toast('Error: '+e.message,'error');
-    console.error('KYC submit error:',e);
+    console.error('KYC error:',e);
   }finally{
     btn.disabled=false;
     btn.textContent='Submit for Review →';
@@ -1370,72 +1347,98 @@ async function submitKYCSimple(){
 
 async function submitKYCFinal(faceScore,faceNotes){
   if(!CU){toast('Login karo pehle','error');return;}
-  toast('Photos compress ho rahe hain…','info');
-
-  // Convert images to compressed base64 — NO network call, instant
-  const panB64  = KYC_DATA.panFile   ? await imgToBase64(KYC_DATA.panFile)   : '';
-  const selfieB64 = KYC_DATA.selfieFile ? await imgToBase64(KYC_DATA.selfieFile) : '';
-
-  toast('DB mein save ho raha hai…','info');
 
   const bankDetails={
-    bank_account_number: document.getElementById('kAccNum')?.value||'',
-    bank_ifsc:          (document.getElementById('kIFSC')?.value||'').toUpperCase(),
-    bank_holder_name:   document.getElementById('kBankHolder')?.value||'',
-    bank_name:          document.getElementById('kBankName')?.value||''
+    bank_account_number:document.getElementById('kAccNum').value,
+    bank_ifsc:document.getElementById('kIFSC').value.toUpperCase(),
+    bank_holder_name:document.getElementById('kBankHolder').value,
+    bank_name:document.getElementById('kBankName').value
   };
 
+  // STEP 1: Save form data instantly — no photos yet
   const kycData={
-    user_id:        CU.id,
-    full_name:      document.getElementById('kName')?.value||'',
-    date_of_birth:  document.getElementById('kDOB')?.value||null,
-    mobile:         document.getElementById('kPhone')?.value||'',
+    user_id:CU.id,
+    full_name:document.getElementById('kName').value,
+    date_of_birth:document.getElementById('kDOB').value||null,
+    mobile:document.getElementById('kPhone').value,
     mobile_verified:KYC_DATA.mobileVerified||false,
-    pan_number:    (document.getElementById('kPAN')?.value||'').toUpperCase(),
-    pan_photo_url:  panB64,      // base64 image stored directly
-    aadhaar_number:(document.getElementById('kAadhaar')?.value||'').replace(/\s/g,'')||null,
-    bank_account_number: bankDetails.bank_account_number,
-    bank_ifsc:           bankDetails.bank_ifsc,
-    bank_holder_name:    bankDetails.bank_holder_name,
-    bank_name:           bankDetails.bank_name,
-    selfie_url:     selfieB64,   // base64 image stored directly
-    ai_pan_valid:   validatePAN(document.getElementById('kPAN')?.value||''),
-    ai_face_match:  faceScore>=30,
-    ai_face_score:  faceScore,
-    ai_notes:       faceNotes||'Manual admin review',
-    status:         'submitted',
-    submitted_at:   new Date().toISOString()
+    pan_number:document.getElementById('kPAN').value.toUpperCase(),
+    pan_photo_url:'',
+    aadhaar_number:document.getElementById('kAadhaar').value.replace(/\s/g,'')||null,
+    bank_account_number:bankDetails.bank_account_number,
+    bank_ifsc:bankDetails.bank_ifsc,
+    bank_holder_name:bankDetails.bank_holder_name,
+    bank_name:bankDetails.bank_name,
+    selfie_url:'',
+    ai_pan_valid:validatePAN(document.getElementById('kPAN').value||''  ),
+    ai_face_match:faceScore>=30,
+    ai_face_score:faceScore,
+    ai_notes:(faceNotes||'Manual review')+' | Photos uploading in background',
+    status:'submitted',
+    submitted_at:new Date().toISOString()
   };
 
   const {error:kycErr}=await db.from('kyc_submissions').upsert(kycData,{onConflict:'user_id'});
-  if(kycErr){
-    console.error('kyc_submissions error:',kycErr);
-    throw new Error(kycErr.message);
-  }
+  if(kycErr){console.error('DB error:',kycErr);throw new Error(kycErr.message);}
 
-  const {error:profErr}=await db.from('users_profile').update({
-    kyc_status:         'submitted',
-    kyc_submitted_at:   new Date().toISOString(),
-    account_holder_name:bankDetails.bank_holder_name,
-    bank_name:          bankDetails.bank_name,
-    account_number:     bankDetails.bank_account_number,
-    ifsc_code:          bankDetails.bank_ifsc
-  }).eq('id',CU.id);
-  if(profErr){console.warn('Profile update warn:',profErr.message);}
-
-  UP={...UP,
+  // Update profile
+  await db.from('users_profile').update({
     kyc_status:'submitted',
+    kyc_submitted_at:new Date().toISOString(),
     account_holder_name:bankDetails.bank_holder_name,
     bank_name:bankDetails.bank_name,
     account_number:bankDetails.bank_account_number,
     ifsc_code:bankDetails.bank_ifsc
-  };
+  }).eq('id',CU.id);
 
+  UP={...UP,kyc_status:'submitted'};
+
+  // STEP 2: Close modal immediately — user done!
   document.getElementById('kycOvl').classList.remove('open');
-  toast('KYC submit ho gaya! Admin review karega.','success');
-  renderKYCSection();
-  renderProfile();
+  toast('KYC submit ho gaya! Photos background mein upload ho rahe hain…','success');
+  renderKYCSection();renderProfile();
   setTimeout(()=>checkKYCStatus(),400);
+
+  // STEP 3: Background photo upload — non-blocking, silent
+  const userId=CU.id;
+  const panFile=KYC_DATA.panFile;
+  const selfieFile=KYC_DATA.selfieFile;
+
+  setTimeout(async()=>{
+    let panUrl='',selfieUrl='';
+    try{
+      if(panFile){
+        const ext=panFile.name.split('.').pop()||'jpg';
+        const path=`pan/${userId}_${Date.now()}.${ext}`;
+        const {data}=await Promise.race([
+          db.storage.from('kyc-documents').upload(path,panFile,{upsert:true,cacheControl:'3600'}),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
+        ]);
+        panUrl=data?.path||'';
+      }
+    }catch(e){console.log('PAN bg upload:',e.message);}
+
+    try{
+      if(selfieFile){
+        const ext=selfieFile.name.split('.').pop()||'jpg';
+        const path=`selfie/${userId}_${Date.now()}.${ext}`;
+        const {data}=await Promise.race([
+          db.storage.from('kyc-documents').upload(path,selfieFile,{upsert:true,cacheControl:'3600'}),
+          new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),20000))
+        ]);
+        selfieUrl=data?.path||'';
+      }
+    }catch(e){console.log('Selfie bg upload:',e.message);}
+
+    // Update DB with photo URLs if uploaded successfully
+    if(panUrl||selfieUrl){
+      const update={ai_notes:faceNotes||'Manual review'};
+      if(panUrl)update.pan_photo_url=panUrl;
+      if(selfieUrl)update.selfie_url=selfieUrl;
+      await db.from('kyc_submissions').update(update).eq('user_id',userId);
+      console.log('Background photo upload complete:',{panUrl,selfieUrl});
+    }
+  },500);
 }
 
 async function sendKYCOTP(){
