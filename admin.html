@@ -986,23 +986,23 @@ function renderStaff(){
     const done=callTasks.filter(t=>t.assigned_to===s.id&&t.status==='completed').length;
     return `<div class="data-item">
       <div class="di-top"><div class="di-main">${s.name}<small>${s.email} · ${s.phone||'—'}</small></div><div class="di-right"><span class="badge ${s.active?'b-a':'b-i'}">${s.active?'ACTIVE':'OFF'}</span><div style="font-size:10px;color:var(--mut)">${done} tasks done</div></div></div>
-      <div style="padding:8px 12px;border-top:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between">
-        <div style="font-size:11px;color:var(--sub)">📦 Product Management</div>
-        <div class="tog ${s.can_manage_products?'on':''}" onclick="toggleStaffPerm('${s.id}','can_manage_products',${!s.can_manage_products},this)" style="transform:scale(0.85)"></div>
+      <div style="padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--brd)">
+        <span style="font-size:11px;color:var(--sub)">📦 Product Management</span>
+        <div class="tog ${s.can_manage_products?'on':''}" onclick="toggleStaffPerm('${s.id}',${!s.can_manage_products},this)"></div>
       </div>
       <div class="di-btns"><button class="btn ${s.active?'btn-d':'btn-g'} btn-sm" onclick="toggleStaff('${s.id}',${!s.active})">${s.active?'Disable':'Enable'}</button><button class="btn btn-d btn-sm" onclick="confirmDel('${s.id}','staff')">Delete</button></div>
     </div>`;
   }).join(''):'<div class="empty"><p>No staff members</p></div>';
 }
 
-async function toggleStaffPerm(id,perm,val,el){
+async function toggleStaffPerm(id,val,el){
   try{
-    await db.from('staff').update({[perm]:val}).eq('id',id);
+    await db.from('staff').update({can_manage_products:val}).eq('id',id);
     const s=staffData.find(x=>x.id===id);
-    if(s)s[perm]=val;
+    if(s)s.can_manage_products=val;
     el.classList.toggle('on',val);
-    toast(`Product access ${val?'granted':'revoked'}`,val?'success':'info');
-  }catch(e){toast('Failed: '+e.message,'error');}
+    toast('Product access '+(val?'granted ✓':'revoked'),val?'success':'info');
+  }catch(e){toast('Error: '+e.message,'error');}
 }
 function openStaffMod(){['stName','stEmail','stPhone','stPass'].forEach(id=>document.getElementById(id).value='');document.getElementById('stErr').textContent='';document.getElementById('staffMod').classList.add('open');}
 async function saveStaff(){
