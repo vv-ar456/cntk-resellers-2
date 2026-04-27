@@ -170,6 +170,7 @@ textarea.inp{resize:vertical;min-height:70px}
     </button>
     <button class="tab" id="tab-history" onclick="showTab('history',this)">Completed</button>
     <button class="tab" id="tab-stats" onclick="showTab('stats',this)">Stats</button>
+    <button class="tab" id="tab-products" onclick="showTab('products',this);loadStaffProds()" style="display:none">📦 Products</button>
   </div>
 
   <!-- TASKS -->
@@ -189,6 +190,52 @@ textarea.inp{resize:vertical;min-height:70px}
       <div class="stl">Completed Tasks</div>
       <div class="card" style="padding:0 14px">
         <div id="histList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="pg" id="pg-products">
+    <div class="wrap">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div class="stl" style="margin:0">Products</div>
+        <button class="btn btn-a btn-sm" onclick="openStaffProdMod()">+ Add Product</button>
+      </div>
+      <div id="staffProdList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- STAFF PRODUCT MODAL -->
+  <div class="ovl" id="staffProdMod">
+    <div class="mdl">
+      <div class="mdl-drag"></div>
+      <div class="mh"><div class="mttl" id="staffProdModTitle">Add Product</div><div class="mx" onclick="closeMod('staffProdMod')">✕</div></div>
+      <div class="mb">
+        <input type="hidden" id="spEditId">
+        <div class="fg"><label class="lbl">Product Name *</label><input class="inp" id="spName" placeholder="Product name"></div>
+        <div class="fg"><label class="lbl">Description</label><textarea class="inp" id="spDesc" rows="2" placeholder="Description…" style="resize:none"></textarea></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="fg"><label class="lbl">MRP (₹) *</label><input class="inp" type="number" id="spPrice" placeholder="0"></div>
+          <div class="fg"><label class="lbl">COD Advance (₹)</label><input class="inp" type="number" id="spCOD" placeholder="0"></div>
+        </div>
+        <div class="fg"><label class="lbl">Category</label><input class="inp" id="spCat" placeholder="e.g. jewelry"></div>
+        <div class="fg"><label class="lbl">Image</label>
+          <input type="file" id="spImgFile" accept="image/*" style="display:none" onchange="handleStaffProdImg(this)">
+          <div style="display:flex;gap:8px">
+            <input class="inp" id="spImgUrl" placeholder="Image URL or upload below" style="flex:1">
+            <button class="btn btn-g btn-sm" onclick="document.getElementById('spImgFile').click()">Upload</button>
+          </div>
+          <img id="spImgPreview" style="width:100%;max-height:120px;object-fit:contain;border-radius:6px;margin-top:6px;display:none">
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+          <div style="font-size:12px;color:var(--sub)">COD Available</div>
+          <div class="tog on" id="spCODA" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="err" id="spErr"></div>
+        <div class="mf">
+          <button class="btn btn-s" onclick="closeMod('staffProdMod')">Cancel</button>
+          <button class="btn btn-a" onclick="saveStaffProd()" id="saveStaffProdBtn" style="flex:1">Save Product</button>
+        </div>
       </div>
     </div>
   </div>
@@ -277,8 +324,120 @@ function admitStaff(){
   document.getElementById('app').style.display='block';
   document.getElementById('staffName').textContent=STAFF.name;
   document.getElementById('staffAv').textContent=STAFF.name.charAt(0).toUpperCase();
+  // Show products tab only if staff has permission
+  if(STAFF.can_manage_products){
+    document.getElementById('tab-products').style.display='';
+  }
   loadMyTasks();
-  setInterval(loadMyTasks,90000); // Auto refresh every 90s
+  setInterval(loadMyTasks,90000);
+}
+
+// ── STAFF PRODUCT MANAGEMENT ──
+let staffProds=[];
+let staffUploadedImgUrl='';
+
+async function loadStaffProds(){
+  document.getElementById('staffProdList').innerHTML='<div class="loading-row"><div class="spin"></div>Loading…</div>';
+  try{
+    const {data}=await db.from('products').select('*').order('created_at',{ascending:false});
+    staffProds=data||[];
+    renderStaffProds();
+  }catch(e){document.getElementById('staffProdList').innerHTML='<div class="empty"><p>Failed to load</p></div>';}
+}
+
+function renderStaffProds(){
+  document.getElementById('staffProdList').innerHTML=staffProds.length?staffProds.map(p=>`
+    <div class="data-item">
+      <div class="di-top">
+        ${p.image_url?`<img src="${p.image_url}" style="width:48px;height:48px;object-fit:cover;border-radius:6px;margin-right:10px">`:''}
+        <div class="di-main">${p.name}<small>₹${p.price} · ${p.active?'Active':'Inactive'}</small></div>
+        <div class="di-right"><span class="badge ${p.cod_available?'b-a':'b-i'}">${p.cod_available?'COD':'Prepaid'}</span></div>
+      </div>
+      <div class="di-btns">
+        <button class="btn btn-t btn-sm" onclick="editStaffProd(${p.id})">Edit</button>
+      </div>
+    </div>`).join(''):'<div class="empty"><p>No products yet</p></div>';
+}
+
+function openStaffProdMod(){
+  staffUploadedImgUrl='';
+  ['spEditId','spName','spDesc','spPrice','spCOD','spCat','spImgUrl','spErr'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('spImgPreview').style.display='none';
+  document.getElementById('spCODA').classList.add('on');
+  document.getElementById('staffProdModTitle').textContent='Add Product';
+  document.getElementById('staffProdMod').classList.add('open');
+}
+
+function editStaffProd(id){
+  const p=staffProds.find(x=>x.id===id);if(!p)return;
+  staffUploadedImgUrl='';
+  document.getElementById('spEditId').value=p.id;
+  document.getElementById('spName').value=p.name||'';
+  document.getElementById('spDesc').value=p.description||'';
+  document.getElementById('spPrice').value=p.price||'';
+  document.getElementById('spCOD').value=p.cod_charge||'';
+  document.getElementById('spCat').value=p.category||'';
+  document.getElementById('spImgUrl').value=p.image_url||'';
+  if(p.image_url){const img=document.getElementById('spImgPreview');img.src=p.image_url;img.style.display='block';}
+  else document.getElementById('spImgPreview').style.display='none';
+  document.getElementById('spCODA').classList.toggle('on',p.cod_available!==false);
+  document.getElementById('staffProdModTitle').textContent='Edit Product';
+  document.getElementById('staffProdMod').classList.add('open');
+}
+
+async function handleStaffProdImg(input){
+  const file=input.files[0];if(!file)return;
+  const btn=document.querySelector('[onclick="document.getElementById('spImgFile').click()"]');
+  if(btn){btn.textContent='Uploading…';btn.disabled=true;}
+  try{
+    const ext=file.name.split('.').pop();
+    const path='products/'+Date.now()+'_'+Math.random().toString(36).slice(2)+'.'+ext;
+    const {data,error}=await db.storage.from('product-images').upload(path,file,{contentType:file.type,upsert:true});
+    if(error)throw error;
+    const {data:urlData}=db.storage.from('product-images').getPublicUrl(path);
+    staffUploadedImgUrl=urlData.publicUrl;
+    document.getElementById('spImgUrl').value=staffUploadedImgUrl;
+    const img=document.getElementById('spImgPreview');img.src=staffUploadedImgUrl;img.style.display='block';
+  }catch(e){document.getElementById('spErr').textContent='Upload failed: '+e.message;}
+  if(btn){btn.textContent='Upload';btn.disabled=false;}
+}
+
+async function saveStaffProd(){
+  const id=document.getElementById('spEditId').value;
+  const imgUrl=staffUploadedImgUrl||document.getElementById('spImgUrl').value.trim();
+  const name=document.getElementById('spName').value.trim();
+  const price=parseFloat(document.getElementById('spPrice').value)||0;
+  if(!name||!price){document.getElementById('spErr').textContent='Name and price required';return;}
+  const payload={
+    name,
+    description:document.getElementById('spDesc').value.trim(),
+    price,
+    cod_charge:parseFloat(document.getElementById('spCOD').value)||0,
+    image_url:imgUrl,
+    category:document.getElementById('spCat').value.trim()||'general',
+    cod_available:document.getElementById('spCODA').classList.contains('on'),
+    active:true
+  };
+  const btn=document.getElementById('saveStaffProdBtn');
+  btn.disabled=true;btn.innerHTML='<div class="spin"></div>';
+  try{
+    if(id){
+      await db.from('products').update(payload).eq('id',id);
+      const i=staffProds.findIndex(p=>p.id==id);
+      if(i>-1)staffProds[i]={...staffProds[i],...payload};
+      toast('Product updated!','success');
+    }else{
+      payload.created_at=new Date().toISOString();
+      const {data}=await db.from('products').insert(payload).select();
+      staffProds.unshift(data?.[0]||{...payload,id:Date.now()});
+      toast('Product added!','success');
+    }
+    closeMod('staffProdMod');
+    renderStaffProds();
+  }catch(e){
+    document.getElementById('spErr').textContent='Error: '+e.message;
+  }
+  btn.disabled=false;btn.textContent='Save Product';
 }
 
 function doLogout(){
