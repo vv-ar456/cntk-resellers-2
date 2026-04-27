@@ -941,19 +941,9 @@ async function loadSettings(){
 }
 
 async function loadProds(){
-  try{
-    const {data,error}=await Promise.race([
-      db.from('products').select('*').eq('active',true).order('created_at',{ascending:false}),
-      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),8000))
-    ]);
-    if(error||!data)throw new Error(error?.message||'no data');
-    PRODS=data;
-  }catch(e){
-    console.log('Products fallback:',e.message);
-    PRODS=demoProd();
-  }
-  const el=document.getElementById('statProd');
-  if(el)el.textContent=PRODS.length;
+  try{const {data,error}=await db.from('products').select('*').eq('active',true).order('created_at',{ascending:false});if(error)throw error;PRODS=data||[];}
+  catch{PRODS=demoProd();}
+  document.getElementById('statProd').textContent=PRODS.length;
   renderGrid(PRODS);
 }
 function demoProd(){return[
