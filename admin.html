@@ -430,9 +430,9 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
           <div class="fg"><label class="lbl">Call Confirm Fee (₹)</label><input class="inp" type="number" id="setCF" value="5" inputmode="numeric"></div>
           <div class="fg"><label class="lbl">Call + Recording Fee (₹)</label><input class="inp" type="number" id="setCFR" value="7" inputmode="numeric"></div>
           <div class="fg"><label class="lbl">Return Policy (days)</label><input class="inp" type="number" id="setRet" value="4" inputmode="numeric"></div>
-          <div class="trow"><span class="tlbl">COD Available</span><div class="tog on" onclick="this.classList.toggle('on')"></div></div>
-          <div class="trow"><span class="tlbl">Require Unboxing Video</span><div class="tog on" onclick="this.classList.toggle('on')"></div></div>
-          <div class="trow"><span class="tlbl">Maintenance Mode</span><div class="tog" onclick="this.classList.toggle('on')"></div></div>
+          <div class="trow"><span class="tlbl">COD Available</span><div class="tog on" id="togCOD" onclick="this.classList.toggle('on')"></div></div>
+          <div class="trow"><span class="tlbl">Require Unboxing Video</span><div class="tog on" id="togVid" onclick="this.classList.toggle('on')"></div></div>
+          <div class="trow"><span class="tlbl">Maintenance Mode</span><div class="tog" id="togMaint" onclick="this.classList.toggle('on')"></div></div>
           <button class="btn btn-a btn-w" onclick="saveSettings()" style="margin-top:14px">Save Settings</button>
         </div>
       </div>
@@ -819,68 +819,39 @@ function renderKYC(){
 
 function viewKYC(id){
   const k=kycList.find(x=>x.id===id);if(!k)return;
-  // URLs are already full public URLs
-  const panSrc=k.pan_photo_url&&!['uploading','pending_upload','test',''].includes(k.pan_photo_url)?
-    (k.pan_photo_url.startsWith('http')?k.pan_photo_url:'https://szvnnkukkgqddaahrwui.supabase.co/storage/v1/object/public/kyc-documents/'+k.pan_photo_url):'';
-  const selfieSrc=k.selfie_url&&!['uploading','pending_upload','test',''].includes(k.selfie_url)?
-    (k.selfie_url.startsWith('http')?k.selfie_url:'https://szvnnkukkgqddaahrwui.supabase.co/storage/v1/object/public/kyc-documents/'+k.selfie_url):'';
   document.getElementById('kycModBody').innerHTML=`
-    <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
+    <div style="margin-bottom:12px">
       <div class="ai-chip ${k.ai_pan_valid?'pass':'fail'}">PAN: ${k.ai_pan_valid?'✓ Valid':'✗ Invalid'}</div>
-      <div class="ai-chip ${k.mobile_verified?'pass':'warn'}">Phone: ${k.mobile_verified?'✓ Verified':'Unverified'}</div>
-      <div class="ai-chip ${k.status==='approved'?'pass':k.status==='rejected'?'fail':'warn'}">${(k.status||'submitted').toUpperCase()}</div>
+      <div class="ai-chip ${k.mobile_verified?'pass':'warn'}">Phone: ${k.mobile_verified?'✓ Verified':'Not verified'}</div>
+      <div class="ai-chip ${k.ai_face_match?'pass':'warn'}">Face: ${k.ai_face_score?k.ai_face_score.toFixed(0)+'%':' —'} ${k.ai_face_match?'✓':'?'}</div>
+      ${k.ai_notes?`<div class="ai-chip warn">ℹ️ ${k.ai_notes}</div>`:''}
     </div>
-    ${panSrc?`<div style="margin-bottom:12px">
-      <div style="font-size:9px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:6px">PAN CARD</div>
-      <img src="${panSrc}" style="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid var(--brd);background:#0a0c10">
-      <a href="${panSrc}" target="_blank" style="font-size:11px;color:var(--amb);display:block;margin-top:4px">View full ↗</a>
-    </div>`:''}
-    ${selfieSrc?`<div style="margin-bottom:12px">
-      <div style="font-size:9px;color:var(--mut);font-family:'JetBrains Mono';margin-bottom:6px">SELFIE</div>
-      <img src="${selfieSrc}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;border:1px solid var(--brd)">
-      <a href="${selfieSrc}" target="_blank" style="font-size:11px;color:var(--amb);display:block;margin-top:4px">View full ↗</a>
-    </div>`:''}
-    <div class="kd-row"><span class="kd-l">Name</span><span class="kd-v">${k.full_name||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">Full Name</span><span class="kd-v">${k.full_name||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">DOB</span><span class="kd-v">${k.date_of_birth||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">Mobile</span><span class="kd-v">${k.mobile||'—'}</span></div>
-    <div class="kd-row"><span class="kd-l">PAN No.</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.pan_number||'—'}</span></div>
-    <div class="kd-row"><span class="kd-l">Aadhaar</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.aadhaar_number||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">PAN</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.pan_number||'—'}</span></div>
+    <div class="kd-row"><span class="kd-l">Aadhaar</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.aadhaar_number||'Not provided'}</span></div>
     <div class="kd-row"><span class="kd-l">Bank</span><span class="kd-v">${k.bank_holder_name||'—'} · ${k.bank_name||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">Account</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.bank_account_number||'—'}</span></div>
     <div class="kd-row"><span class="kd-l">IFSC</span><span class="kd-v" style="font-family:'JetBrains Mono'">${k.bank_ifsc||'—'}</span></div>
-    <div class="kd-row"><span class="kd-l">Submitted</span><span class="kd-v">${k.submitted_at?new Date(k.submitted_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}</span></div>
-    ${k.admin_note?`<div class="kd-row"><span class="kd-l">Note</span><span class="kd-v" style="color:var(--sub)">${k.admin_note}</span></div>`:''}
-    <div class="fg" style="margin-top:12px"><label class="lbl">Admin Note (optional)</label><input class="inp" id="kycNote" placeholder="Rejection reason ya comment…"></div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      ${k.status!=='approved'?`<button class="btn btn-g" style="flex:1" onclick="reviewKYC('${k.id}','approved')">✓ Approve</button>`:'<div style="flex:1;text-align:center;font-size:12px;color:var(--grn);padding:12px">✓ Approved</div>'}
+    ${k.pan_photo_url?`<div class="kd-row"><span class="kd-l">PAN Photo</span><span class="kd-v"><a href="${getSBUrl('kyc-documents',k.pan_photo_url)}" target="_blank" style="color:var(--amb)">View ↗</a></span></div>`:''}
+    ${k.selfie_url?`<div class="kd-row"><span class="kd-l">Selfie</span><span class="kd-v"><a href="${getSBUrl('kyc-documents',k.selfie_url)}" target="_blank" style="color:var(--amb)">View ↗</a></span></div>`:''}
+    <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--brd)">
+      ${k.status!=='approved'?`<button class="btn btn-g" style="flex:1" onclick="reviewKYC('${k.id}','approved')">✓ Approve</button>`:''}
       ${k.status!=='rejected'?`<button class="btn btn-d" style="flex:1" onclick="reviewKYC('${k.id}','rejected')">✗ Reject</button>`:''}
-    </div>`;
+    </div>
+    ${k.status!=='approved'?`<div class="fg" style="margin-top:10px"><label class="lbl">Admin Note</label><input class="inp" id="kycNote" placeholder="Rejection reason…"></div>`:''}`;
   document.getElementById('kycMod').classList.add('open');
 }
-
-function getSBUrl(bucket,path){const {data}=db.storage.from(bucket).getPublicUrl(path);return data?.publicUrl||path;}
-
+function getSBUrl(bucket,path){const {data}=db.storage.from(bucket).getPublicUrl(path);return data?.publicUrl||'#';}
 async function reviewKYC(id,status){
   const note=document.getElementById('kycNote')?.value||'';
-  const btns=document.querySelectorAll('#kycModBody .btn');
-  btns.forEach(b=>b.disabled=true);
   try{
-    const SERVICE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
-    const dbA=supabase.createClient('https://szvnnkukkgqddaahrwui.supabase.co',SERVICE_KEY);
-    const {error:e1}=await dbA.from('kyc_submissions').update({status,admin_note:note,reviewed_at:new Date().toISOString()}).eq('id',id);
-    if(e1)throw e1;
+    await db.from('kyc_submissions').update({status,admin_note:note,reviewed_at:new Date().toISOString()}).eq('id',id);
     const k=kycList.find(x=>x.id===id);
-    if(k?.user_id){
-      await dbA.from('users_profile').update({kyc_status:status}).eq('id',k.user_id);
-      k.status=status;
-    }
-    closeMod('kycMod');
-    toast('KYC '+(status==='approved'?'Approved ✓':'Rejected ✗'),status==='approved'?'success':'info');
-    await loadKYC();
-  }catch(e){
-    toast('Error: '+e.message,'error');
-    btns.forEach(b=>b.disabled=false);
-  }
+    if(k){k.status=status;if(k.user_id)await db.from('users_profile').update({kyc_status:status}).eq('id',k.user_id);}
+    closeMod('kycMod');toast(`KYC ${status}!`,status==='approved'?'success':'info');await loadKYC();
+  }catch(e){toast('Error: '+e.message,'error');}
 }
 
 // ── HELPDESK ──
@@ -1149,7 +1120,42 @@ function closeMod(id){document.getElementById(id).classList.remove('open');}
   if(el)el.addEventListener('click',e=>{if(e.target===e.currentTarget)el.classList.remove('open');});
 });
 
-function saveSettings(){toast('Settings saved!','success');}
+async function saveSettings(){
+  const btn=document.querySelector('[onclick="saveSettings()"]');
+  if(btn){btn.disabled=true;btn.textContent='Saving…';}
+  try{
+    const pairs=[
+      {key:'call_confirm_fee',           value:document.getElementById('setCF').value||'5'},
+      {key:'call_confirm_recording_fee', value:document.getElementById('setCFR').value||'7'},
+      {key:'return_days',                value:document.getElementById('setRet').value||'4'},
+      {key:'cod_global',                 value:document.getElementById('togCOD')?.classList.contains('on')?'true':'false'},
+      {key:'require_unboxing_video',     value:document.getElementById('togVid')?.classList.contains('on')?'true':'false'},
+      {key:'maintenance_mode',           value:document.getElementById('togMaint')?.classList.contains('on')?'true':'false'},
+    ];
+    for(const p of pairs){
+      await db.from('settings').upsert({key:p.key,value:p.value,updated_at:new Date().toISOString()},{onConflict:'key'});
+    }
+    toast('Settings saved! ✓','success');
+  }catch(e){
+    toast('Save failed: '+e.message,'error');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Save Settings';}
+  }
+}
+
+async function loadAdminSettings(){
+  try{
+    const {data}=await db.from('settings').select('key,value');
+    if(!data)return;
+    const m={};data.forEach(r=>m[r.key]=r.value);
+    if(m.call_confirm_fee)document.getElementById('setCF').value=m.call_confirm_fee;
+    if(m.call_confirm_recording_fee)document.getElementById('setCFR').value=m.call_confirm_recording_fee;
+    if(m.return_days)document.getElementById('setRet').value=m.return_days;
+    if(m.cod_global==='false')document.getElementById('togCOD')?.classList.remove('on');
+    if(m.require_unboxing_video==='false')document.getElementById('togVid')?.classList.remove('on');
+    if(m.maintenance_mode==='true')document.getElementById('togMaint')?.classList.add('on');
+  }catch(e){console.log('Admin settings:',e.message);}
+}
 
 // ── TOAST ──
 function toast(msg,type='info'){
