@@ -1136,8 +1136,9 @@ function renderDash(){
   const pend=ORDS.filter(o=>['pending','processing'].includes(o.status)).length;
   const profit=ORDS.reduce((s,o)=>{
     if(!o.seller_price||!o.product_price)return s;
-    const codP=Math.max(0,o.seller_price-(o.cod_charge||0)-o.product_price)*(o.cod_count||0);
-    const preP=Math.max(0,o.seller_price-o.product_price)*(o.prepaid_count||0);
+    const callCh=o.call_confirmation?(o.call_recording?7:5):0;
+    const codP=Math.max(0,o.seller_price-(o.cod_charge||0)-o.product_price-callCh)*(o.cod_count||0);
+    const preP=Math.max(0,o.seller_price-o.product_price-callCh)*(o.prepaid_count||0);
     return s+codP+preP;
   },0);
   document.getElementById('dPaid').textContent='₹'+paid.toLocaleString();
@@ -1610,17 +1611,16 @@ function renderOrderStep(){
     const subtotal=codAmt+preAmt+callFee;
     const walletAvail=WALLET.balance||0;
     const walletUse=Math.min(walletAvail,subtotal);
-    // COD profit: sellerPrice - cod_charge - product_price (cod_charge is advance deducted)
-    // Prepaid profit: sellerPrice - product_price
-    const codProfit=Math.max(0,OS.sellerPrice-(CUR_PROD.cod_charge||0)-CUR_PROD.price);
-    const preProfit=Math.max(0,OS.sellerPrice-CUR_PROD.price);
+    const callCharge=OS.callConf?(OS.callRec?7:5):0;
+    const codProfit=Math.max(0,OS.sellerPrice-(CUR_PROD.cod_charge||0)-CUR_PROD.price-callCharge);
+    const preProfit=Math.max(0,OS.sellerPrice-CUR_PROD.price-callCharge);
     const estProfit=(codProfit*cod)+(preProfit*pre);
     body.innerHTML=`${dots(5)}<div class="stag">Step 5 — Pay</div><div class="sq">Review & pay</div>
       <div class="sb">
         <div class="sr2"><span class="sl">Product</span><span class="sv" style="font-size:11px;max-width:160px;text-align:right">${CUR_PROD.name}</span></div>
         <div class="sr2"><span class="sl">Sell @ ₹${OS.sellerPrice}/unit</span><span class="sv" style="color:var(--grn)">+₹${Math.max(0,estProfit).toLocaleString()} profit</span></div>
-        ${cod>0?`<div class="sr2"><span class="sl" style="font-size:10px;color:var(--mut)">COD profit: ₹${codProfit}/unit (after ₹${CUR_PROD.cod_charge||0} advance)</span></div>`:''}
-        ${pre>0?`<div class="sr2"><span class="sl" style="font-size:10px;color:var(--mut)">Prepaid profit: ₹${preProfit}/unit</span></div>`:''}
+        ${cod>0?`<div class="sr2"><span class="sl" style="font-size:10px;color:var(--mut)">COD: ₹${OS.sellerPrice}-₹${CUR_PROD.cod_charge||0}(adv)-₹${CUR_PROD.price}(prod)${callCharge>0?'-₹'+callCharge+'(call)':''} = ₹${codProfit}/unit</span></div>`:''}
+        ${pre>0?`<div class="sr2"><span class="sl" style="font-size:10px;color:var(--mut)">Prepaid: ₹${OS.sellerPrice}-₹${CUR_PROD.price}(prod)${callCharge>0?'-₹'+callCharge+'(call)':''} = ₹${preProfit}/unit</span></div>`:''}
         <div class="sr2"><span class="sl">COD (${cod}×₹${CUR_PROD.cod_charge||0})</span><span class="sv" style="color:var(--ora)">₹${codAmt.toLocaleString()}</span></div>
         <div class="sr2"><span class="sl">Prepaid (${pre}×₹${CUR_PROD.price})</span><span class="sv" style="color:var(--tel)">₹${preAmt.toLocaleString()}</span></div>
         ${callFee>0?`<div class="sr2"><span class="sl">Call${OS.callRec?'+Rec':''} (${cod+pre}×₹${OS.callRec?7:5})</span><span class="sv" style="color:var(--blu)">₹${callFee}</span></div>`:''}
@@ -1730,14 +1730,9 @@ function calcProfit(v){
   const sp=parseFloat(v)||0,el=document.getElementById('profitShow');if(!el)return;
   if(sp<=0){el.innerHTML='';return;}
   if(sp<CUR_PROD.price){el.innerHTML=`<span style="color:var(--red)">⚠️ Must be ≥ MRP ₹${CUR_PROD.price}</span>`;return;}
-  // COD profit: sellerPrice - cod_charge(advance) - product_price = net profit per unit
-  // Prepaid profit: sellerPrice - product_price = net profit per unit
   const codProfit=sp-(CUR_PROD.cod_charge||0)-CUR_PROD.price;
   const preProfit=sp-CUR_PROD.price;
-  const qty=OS.parsed?.qty||1;
-  el.innerHTML=`<span style="color:var(--grn)">
-    💰 COD: ₹${codProfit.toLocaleString()}/unit &nbsp;·&nbsp; Prepaid: ₹${preProfit.toLocaleString()}/unit
-  </span>`;
+  el.innerHTML=`<span style="color:var(--grn)">💰 COD: ₹${codProfit}/unit &nbsp;·&nbsp; Prepaid: ₹${preProfit}/unit<span style="color:var(--mut);font-size:10px;display:block;margin-top:2px">* Calling charge (₹5 or ₹7/unit) bhi deduct hoga if chosen</span></span>`;
 }
 function goStep4(){const sp=parseFloat(document.getElementById('spIn').value)||0;if(sp<CUR_PROD.price){toast('Selling price must be ≥ MRP','error');return;}OS.sellerPrice=sp;OS.step=4;renderOrderStep();}
 function calcSplit(){
