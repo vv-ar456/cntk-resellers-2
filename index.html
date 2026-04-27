@@ -761,6 +761,7 @@ setInterval(()=>{const t=performance.now();debugger;if(performance.now()-t>150){
 // STATE
 // ════════════════════════════════════════════════
 let CU=null,UP=null,PRODS=[],ORDS=[],PLANS=[],CF='all';
+let SETT={call_confirm_fee:5,call_recording_fee:7,return_days:4,cod_available:true,require_unboxing_video:true};
 let CUR_PROD=null,OS={};
 let KYC_DATA={panFile:null,selfieFile:null,panImgEl:null,selfieImgEl:null,mobileVerified:false,otpSession:null};
 let BANK_PENDING={},WALLET={balance:0,locked:0,txns:[]};
@@ -822,6 +823,7 @@ async function init(){
   const {data:{session}}=await db.auth.getSession();
   if(session?.user)await onLogin(session.user);
   await loadProds();
+  await loadSettings();
   await loadPlans();
   db.auth.onAuthStateChange(async(ev,sess)=>{
     if(ev==='SIGNED_IN'&&sess?.user)await onLogin(sess.user);
@@ -925,6 +927,19 @@ function showPg(name){
 // ════════════════════════════════════════════════
 // PRODUCTS
 // ════════════════════════════════════════════════
+async function loadSettings(){
+  try{
+    const {data}=await db.from('settings').select('*').limit(1).single();
+    if(data){
+      SETT.call_confirm_fee=data.call_confirm_fee||5;
+      SETT.call_recording_fee=data.call_recording_fee||7;
+      SETT.return_days=data.return_policy_days||4;
+      SETT.cod_available=data.cod_available!==false;
+      SETT.require_unboxing_video=data.require_unboxing_video!==false;
+    }
+  }catch(e){console.log('Settings fallback:',e.message);}
+}
+
 async function loadProds(){
   try{const {data,error}=await db.from('products').select('*').eq('active',true).order('created_at',{ascending:false});if(error)throw error;PRODS=data||[];}
   catch{PRODS=demoProd();}
@@ -1134,13 +1149,7 @@ function renderDash(){
   document.getElementById('dOrd').textContent=ORDS.length;
   const paid=ORDS.reduce((s,o)=>s+(o.total_paid||0),0);
   const pend=ORDS.filter(o=>['pending','processing'].includes(o.status)).length;
-  const profit=ORDS.reduce((s,o)=>{
-    if(!o.seller_price||!o.product_price)return s;
-    const cc=o.call_confirmation?(o.call_recording?7:5):0;
-    const codP=Math.max(0,o.seller_price-(o.cod_charge||0)-o.product_price-cc)*(o.cod_count||0);
-    const preP=Math.max(0,o.seller_price-o.product_price-cc)*(o.prepaid_count||0);
-    return s+codP+preP;
-  },0);
+  const profit=ORDS.reduce((s,o)=>{if(!o.seller_price||!o.product_price)return s;return s+(o.seller_price-o.product_price)*((o.cod_count||0)+(o.prepaid_count||0));},0);
   document.getElementById('dPaid').textContent='₹'+paid.toLocaleString();
   document.getElementById('dProfit').textContent='₹'+Math.max(0,profit).toLocaleString();
   document.getElementById('dWallet').textContent='₹'+(WALLET.balance||0).toLocaleString();
@@ -1590,9 +1599,9 @@ function renderOrderStep(){
       </div>
       <div id="callOptWrap" style="display:none">
         <div style="font-size:11px;font-weight:600;margin-bottom:8px;color:var(--amb)">📞 Call Confirmation</div>
-        <div class="call-opt ${!OS.callConf?'sel':''}" onclick="OS.codCount=parseInt(document.getElementById('codIn')?.value)||OS.codCount;OS.prepaidCount=parseInt(document.getElementById('preIn')?.value)||OS.prepaidCount;OS.callConf=false;OS.callRec=false;renderOrderStep()"><div class="co-ttl">No Call</div><div class="co-price">₹0</div></div>
-        <div class="call-opt ${OS.callConf&&!OS.callRec?'sel':''}" onclick="OS.codCount=parseInt(document.getElementById('codIn')?.value)||OS.codCount;OS.prepaidCount=parseInt(document.getElementById('preIn')?.value)||OS.prepaidCount;OS.callConf=true;OS.callRec=false;renderOrderStep()"><div class="co-ttl">Call Confirmation</div><div class="co-sub">Confirm each order</div><div class="co-price">₹5/order</div></div>
-        <div class="call-opt ${OS.callConf&&OS.callRec?'sel':''}" onclick="OS.codCount=parseInt(document.getElementById('codIn')?.value)||OS.codCount;OS.prepaidCount=parseInt(document.getElementById('preIn')?.value)||OS.prepaidCount;OS.callConf=true;OS.callRec=true;renderOrderStep()"><div class="co-ttl">Call + Recording</div><div class="co-sub">With recorded proof</div><div class="co-price">₹7/order</div></div>
+        <div class="call-opt ${!OS.callConf?'sel':''}" onclick="OS.callConf=false;OS.callRec=false;renderOrderStep()"><div class="co-ttl">No Call</div><div class="co-price">₹0</div></div>
+        <div class="call-opt ${OS.callConf&&!OS.callRec?'sel':''}" onclick="OS.callConf=true;OS.callRec=false;renderOrderStep()"><div class="co-ttl">Call Confirmation</div><div class="co-sub">Confirm each order</div><div class="co-price">₹${SETT.call_confirm_fee}/order</div></div>
+        <div class="call-opt ${OS.callConf&&OS.callRec?'sel':''}" onclick="OS.callConf=true;OS.callRec=true;renderOrderStep()"><div class="co-ttl">Call + Recording</div><div class="co-sub">With recorded proof</div><div class="co-price">₹${SETT.call_recording_fee}/order</div></div>
       </div>
       <button class="btn btn-a" id="s4btn" onclick="goStep5()" disabled>Review & Pay →</button>
       <button class="btn btn-g" onclick="OS.step=3;renderOrderStep()" style="margin-top:8px">← Back</button>`;
@@ -1607,20 +1616,15 @@ function renderOrderStep(){
   else if(s===5){
     const cod=OS.codCount,pre=OS.prepaidCount;
     const codAmt=cod*(CUR_PROD.cod_charge||0),preAmt=pre*CUR_PROD.price;
-    const callFee=OS.callConf?((OS.callRec?7:5)*(cod+pre)):0;
+    const callFee=OS.callConf?((OS.callRec?SETT.call_recording_fee:SETT.call_confirm_fee)*(cod+pre)):0;
     const subtotal=codAmt+preAmt+callFee;
     const walletAvail=WALLET.balance||0;
     const walletUse=Math.min(walletAvail,subtotal);
-    const callCharge=OS.callConf?(OS.callRec?7:5):0;
-    const codProfit=Math.max(0,OS.sellerPrice-(CUR_PROD.cod_charge||0)-CUR_PROD.price-callCharge);
-    const preProfit=Math.max(0,OS.sellerPrice-CUR_PROD.price-callCharge);
-    const estProfit=(codProfit*cod)+(preProfit*pre);
+    const estProfit=(OS.sellerPrice-CUR_PROD.price)*(cod+pre);
     body.innerHTML=`${dots(5)}<div class="stag">Step 5 — Pay</div><div class="sq">Review & pay</div>
       <div class="sb">
         <div class="sr2"><span class="sl">Product</span><span class="sv" style="font-size:11px;max-width:160px;text-align:right">${CUR_PROD.name}</span></div>
-        <div class="sr2"><span class="sl">Sell @ ₹${OS.sellerPrice}/unit</span><span class="sv" style="color:var(--grn)">+₹${estProfit.toLocaleString()} profit</span></div>
-        ${cod>0?`<div class="sr2"><span class="sl" style="font-size:10px;color:var(--mut)">COD: ₹${OS.sellerPrice}-₹${CUR_PROD.cod_charge||0}(adv)-₹${CUR_PROD.price}(prod)${callCharge>0?'-₹'+callCharge+'(call)':''} = ₹${codProfit}/unit</span></div>`:''}
-        ${pre>0?`<div class="sr2"><span class="sl" style="font-size:10px;color:var(--mut)">Prepaid: ₹${OS.sellerPrice}-₹${CUR_PROD.price}(prod)${callCharge>0?'-₹'+callCharge+'(call)':''} = ₹${preProfit}/unit</span></div>`:''}
+        <div class="sr2"><span class="sl">Sell @ ₹${OS.sellerPrice}/unit</span><span class="sv" style="color:var(--grn)">+₹${Math.max(0,estProfit).toLocaleString()} profit</span></div>
         <div class="sr2"><span class="sl">COD (${cod}×₹${CUR_PROD.cod_charge||0})</span><span class="sv" style="color:var(--ora)">₹${codAmt.toLocaleString()}</span></div>
         <div class="sr2"><span class="sl">Prepaid (${pre}×₹${CUR_PROD.price})</span><span class="sv" style="color:var(--tel)">₹${preAmt.toLocaleString()}</span></div>
         ${callFee>0?`<div class="sr2"><span class="sl">Call${OS.callRec?'+Rec':''} (${cod+pre}×₹${OS.callRec?7:5})</span><span class="sv" style="color:var(--blu)">₹${callFee}</span></div>`:''}
@@ -1727,12 +1731,10 @@ function proceedManual(){
   OS.step=3;renderOrderStep();
 }
 function calcProfit(v){
-  const sp=parseFloat(v)||0,el=document.getElementById('profitShow');if(!el)return;
-  if(sp<=0){el.innerHTML='';return;}
-  if(sp<CUR_PROD.price){el.innerHTML=`<span style="color:var(--red)">⚠️ Must be ≥ MRP ₹${CUR_PROD.price}</span>`;return;}
-  const codP=sp-(CUR_PROD.cod_charge||0)-CUR_PROD.price;
-  const preP=sp-CUR_PROD.price;
-  el.innerHTML=`<span style="color:var(--grn)">💰 COD: ₹${codP}/unit · Prepaid: ₹${preP}/unit<span style="color:var(--mut);font-size:10px;display:block">* Call charge (₹5/₹7 per unit) alag deduct hoga</span></span>`;
+  const sp=parseFloat(v)||0,p=sp-CUR_PROD.price,el=document.getElementById('profitShow');if(!el)return;
+  if(sp>0&&p>0)el.innerHTML=`<span style="color:var(--grn)">💰 ₹${p.toLocaleString()}/unit · Total: ₹${(p*OS.parsed.qty).toLocaleString()}</span>`;
+  else if(sp>0)el.innerHTML=`<span style="color:var(--red)">⚠️ Must be ≥ MRP ₹${CUR_PROD.price}</span>`;
+  else el.innerHTML='';
 }
 function goStep4(){const sp=parseFloat(document.getElementById('spIn').value)||0;if(sp<CUR_PROD.price){toast('Selling price must be ≥ MRP','error');return;}OS.sellerPrice=sp;OS.step=4;renderOrderStep();}
 function calcSplit(){
@@ -1784,7 +1786,7 @@ async function doPayment(subtotal){
 
 async function saveOrder(resp,totalPaid,walletUsed,rzpPaid){
   try{
-    const callFee=OS.callConf?((OS.callRec?7:5)*(OS.codCount+OS.prepaidCount)):0;
+    const callFee=OS.callConf?((OS.callRec?SETT.call_recording_fee:SETT.call_confirm_fee)*(OS.codCount+OS.prepaidCount)):0;
     // Deduct wallet
     if(walletUsed>0){
       const newBal=Math.max(0,(WALLET.balance||0)-walletUsed);
