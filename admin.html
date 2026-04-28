@@ -1136,6 +1136,8 @@ function showPg(name,btn){
   if(name==='withdrawals')renderWR();
   if(name==='wallet'){renderWallets();loadWalletOrders();}
   if(name==='calltasks')renderCT();
+  if(name==='sheets')loadSheets();
+  if(name==='settings')loadAdminSettings();
   closeSB();window.scrollTo(0,0);
 }
 
@@ -1146,7 +1148,37 @@ function closeMod(id){document.getElementById(id).classList.remove('open');}
   if(el)el.addEventListener('click',e=>{if(e.target===e.currentTarget)el.classList.remove('open');});
 });
 
-function saveSettings(){toast('Settings saved!','success');}
+// ── APP SETTINGS ──
+async function loadAdminSettings(){
+  try{
+    const {data}=await db.from('app_settings').select('*').eq('id',1).single();
+    if(data){
+      const cf=document.getElementById('setCF');
+      const cfr=document.getElementById('setCFR');
+      const ret=document.getElementById('setRet');
+      if(cf)cf.value=data.call_confirm_fee||5;
+      if(cfr)cfr.value=data.call_recording_fee||7;
+      if(ret)ret.value=data.return_days||4;
+    }
+  }catch(e){console.warn('Settings load failed:',e.message);}
+}
+async function saveSettings(){
+  const cf=parseFloat(document.getElementById('setCF')?.value)||5;
+  const cfr=parseFloat(document.getElementById('setCFR')?.value)||7;
+  const ret=parseInt(document.getElementById('setRet')?.value)||4;
+  try{
+    // Upsert — create row if not exists, update if exists
+    const {error}=await db.from('app_settings').upsert({
+      id:1,
+      call_confirm_fee:cf,
+      call_recording_fee:cfr,
+      return_days:ret,
+      updated_at:new Date().toISOString()
+    },{onConflict:'id'});
+    if(error)throw error;
+    toast('Settings saved! Main website pe reflect hoga.','success');
+  }catch(e){toast('Save failed: '+e.message,'error');}
+}
 
 // ── ORDER SHEETS ──
 let sheetsData=[];
