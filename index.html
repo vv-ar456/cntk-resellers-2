@@ -1676,30 +1676,33 @@ function processFile(file){
   if(!file.name.match(/\.(xlsx|xls|csv)$/i)){toast('Use XLSX, XLS or CSV','error');return;}
   document.getElementById('aiStatus').innerHTML='<div class="loading-row"><div class="spin"></div><span>AI reading sheet…</span></div>';
   const reader=new FileReader();
-  reader.onload=async e=>{
+  reader.onload=e=>{
     try{
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      // Save sheet to Supabase storage and record metadata
-      try{
-        const ext=file.name.split('.').pop()||'xlsx';
-        const path=`sheets/${CU.id}_${Date.now()}.${ext}`;
-        const {error:upErr}=await db.storage.from('order-sheets').upload(path,file,{contentType:file.type,upsert:false});
-        if(!upErr){
-          await db.from('uploaded_sheets').insert({
-            user_id:CU.id,
-            file_name:file.name,
-            file_path:path,
-            product_id:CUR_PROD?.id||null,
-            product_name:CUR_PROD?.name||null,
-            uploaded_at:new Date().toISOString(),
-            status:'pending'
-          });
-        }
-      }catch(se){console.warn('Sheet save to Supabase failed:',se);}
+      // Parse immediately — don't block on Supabase save
       aiParse(rows);
-    }catch{toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}
+      // Save to Supabase in background (fire and forget)
+      (async()=>{
+        try{
+          const ext=file.name.split('.').pop()||'xlsx';
+          const path=`sheets/${CU?.id||'anon'}_${Date.now()}.${ext}`;
+          const {error:upErr}=await db.storage.from('order-sheets').upload(path,file,{contentType:file.type,upsert:false});
+          if(!upErr){
+            await db.from('uploaded_sheets').insert({
+              user_id:CU?.id||null,
+              file_name:file.name,
+              file_path:path,
+              product_id:CUR_PROD?.id||null,
+              product_name:CUR_PROD?.name||null,
+              uploaded_at:new Date().toISOString(),
+              status:'pending'
+            });
+          }
+        }catch(se){console.warn('Sheet bg-save failed:',se);}
+      })();
+    }catch(err){toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}
   };
   reader.readAsArrayBuffer(file);
 }
