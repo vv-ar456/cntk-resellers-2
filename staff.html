@@ -127,6 +127,26 @@ textarea.inp{resize:vertical;min-height:70px}
 
 /* STAT PILLS */
 .stat-pills{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+
+/* OVERLAY MODAL */
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.9);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:500;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.ovl.open{opacity:1;pointer-events:all}
+.mdl{background:var(--card);border:1px solid var(--brdb);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.32,0,.67,0);padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.ovl.open .mdl{transform:translateY(0);transition-timing-function:cubic-bezier(.33,1,.68,1)}
+.mdl-drag{width:40px;height:4px;background:var(--brd);border-radius:2px;margin:10px auto 0}
+.mh{padding:16px 16px 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.mttl{font-family:'Bebas Neue';font-size:19px;letter-spacing:1px}
+.mx{background:var(--sur);border:1px solid var(--brd);border-radius:7px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sub);font-size:14px;-webkit-tap-highlight-color:transparent}
+.mb{padding:0 16px 16px}
+.mf{display:flex;gap:8px;margin-top:14px}
+.btn-sm{padding:7px 11px!important;font-size:11px!important;width:auto!important}
+.btn-t{background:rgba(0,212,255,.1);color:var(--blu);border:1px solid rgba(0,212,255,.2);width:100%}
+.btn-b{background:rgba(0,212,170,.1);color:var(--tel);border:1px solid rgba(0,212,170,.2);width:100%}
+.btn-d{background:rgba(255,71,87,.12);color:var(--red);border:1px solid rgba(255,71,87,.25);width:100%}
+.tog{width:36px;height:20px;background:var(--brd);border-radius:100px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.tog::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.tog.on{background:var(--amb)}.tog.on::after{transform:translateX(16px)}
+.err{color:var(--red);font-size:11px;margin-top:5px;min-height:15px}
 .sp2{background:var(--card);border:1px solid var(--brd);border-radius:var(--rs);padding:12px;text-align:center}
 .sp2-n{font-family:'Bebas Neue';font-size:28px;line-height:1;color:var(--amb)}
 .sp2-l{font-size:10px;color:var(--mut)}
@@ -194,14 +214,14 @@ textarea.inp{resize:vertical;min-height:70px}
     </div>
   </div>
 
-  <!-- PRODUCTS -->
+  <!-- PRODUCTS PAGE (permission-gated) -->
   <div class="pg" id="pg-products">
     <div class="wrap">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div class="stl" style="margin:0">Products</div>
-        <button class="btn btn-a btn-sm" onclick="openStaffProdMod(0)">+ Add</button>
+        <div class="stl" style="margin:0">📦 Products</div>
+        <button class="btn btn-a" style="width:auto;padding:9px 14px;font-size:12px" onclick="openStaffProdMod(0)">+ Add Product</button>
       </div>
-      <div id="staffProdList"></div>
+      <div id="staffProdList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
     </div>
   </div>
 
@@ -318,9 +338,14 @@ async function restoreSession(){
   const sid=localStorage.getItem('staff_id');
   const lt=parseInt(localStorage.getItem('staff_login_time')||'0');
   if(!sid||!lt)return;
-  if(Date.now()-lt>8*3600000){localStorage.removeItem('staff_id');localStorage.removeItem('staff_login_time');return;}
+  if(Date.now()-lt>24*3600000){localStorage.removeItem('staff_id');localStorage.removeItem('staff_login_time');return;}
   const {data}=await dbAdmin.from('staff').select('*').eq('id',sid).eq('active',true).single();
   if(data){STAFF=data;admitStaff();}
+}
+
+function checkAutoLogout(){
+  const lt=parseInt(localStorage.getItem('staff_login_time')||'0');
+  if(lt&&Date.now()-lt>24*3600000){doLogout();}
 }
 
 function admitStaff(){
@@ -328,11 +353,12 @@ function admitStaff(){
   document.getElementById('app').style.display='block';
   document.getElementById('staffName').textContent=STAFF.name;
   document.getElementById('staffAv').textContent=STAFF.name.charAt(0).toUpperCase();
-  if(STAFF.can_manage_products){
-    document.getElementById('tab-products').style.display='';
-  }
+  // Products tab only shown if permission granted
+  document.getElementById('tab-products').style.display=STAFF.can_manage_products?'':'none';
   loadMyTasks();
   setInterval(loadMyTasks,90000);
+  // Auto logout after 24 hours
+  setInterval(checkAutoLogout,60000);
 }
 
 // ── STAFF PRODUCT MANAGEMENT ──

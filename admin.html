@@ -259,6 +259,7 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
       <button class="sblink" onclick="showPg('subscriptions',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/></svg>Subscriptions</button>
       <div class="sb-sec">System</div>
       <button class="sblink" onclick="showPg('staff',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Staff</button>
+      <button class="sblink" onclick="showPg('sheets',this);loadSheets()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Order Sheets</button>
       <button class="sblink" onclick="showPg('settings',this)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4"/></svg>Settings</button>
     </nav>
     <div class="sb-foot">
@@ -435,6 +436,17 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
           <div class="trow"><span class="tlbl">Maintenance Mode</span><div class="tog" onclick="this.classList.toggle('on')"></div></div>
           <button class="btn btn-a btn-w" onclick="saveSettings()" style="margin-top:14px">Save Settings</button>
         </div>
+      </div>
+    </div>
+
+    <!-- UPLOADED SHEETS -->
+    <div class="pg" id="pg-sheets">
+      <div class="tcard">
+        <div class="tch">
+          <div class="tcttl">📄 Uploaded Order Sheets</div>
+          <button class="btn btn-b btn-sm" onclick="loadSheets()">↻ Refresh</button>
+        </div>
+        <div class="data-list" id="sheetsList"><div class="loading-row"><div class="spin"></div>Loading…</div></div>
       </div>
     </div>
   </div>
@@ -1118,7 +1130,7 @@ function showPg(name,btn){
   document.querySelectorAll('.sblink').forEach(l=>l.classList.remove('act'));
   document.getElementById('pg-'+name)?.classList.add('act');
   if(btn)btn.classList.add('act');
-  const titles={dashboard:'Dashboard',products:'Products',categories:'Categories',orders:'Orders',resellers:'Resellers',kyc:'KYC Review',withdrawals:'Withdrawals',wallet:'Wallet Mgmt',helpdesk:'Help Desk',calltasks:'Call Tasks',subscriptions:'Subscriptions',staff:'Staff',settings:'Settings'};
+  const titles={dashboard:'Dashboard',products:'Products',categories:'Categories',orders:'Orders',resellers:'Resellers',kyc:'KYC Review',withdrawals:'Withdrawals',wallet:'Wallet Mgmt',helpdesk:'Help Desk',calltasks:'Call Tasks',subscriptions:'Subscriptions',staff:'Staff',settings:'Settings',sheets:'Order Sheets'};
   document.getElementById('pageTitle').textContent=titles[name]||name;
   document.getElementById('topAction').style.display=name==='products'?'flex':'none';
   if(name==='withdrawals')renderWR();
@@ -1135,6 +1147,38 @@ function closeMod(id){document.getElementById(id).classList.remove('open');}
 });
 
 function saveSettings(){toast('Settings saved!','success');}
+
+// ── ORDER SHEETS ──
+let sheetsData=[];
+async function loadSheets(){
+  document.getElementById('sheetsList').innerHTML='<div class="loading-row"><div class="spin"></div>Loading…</div>';
+  try{
+    const {data,error}=await db.from('uploaded_sheets').select('*').order('uploaded_at',{ascending:false}).limit(100);
+    if(error)throw error;
+    sheetsData=data||[];
+    renderSheets();
+  }catch(e){document.getElementById('sheetsList').innerHTML=`<div class="empty"><p>Error loading sheets: ${e.message}</p><p style="font-size:10px;margin-top:6px;color:var(--mut)">Make sure the 'uploaded_sheets' table exists in Supabase.</p></div>`;}
+}
+function renderSheets(){
+  const el=document.getElementById('sheetsList');
+  if(!sheetsData.length){el.innerHTML='<div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg><p>No sheets uploaded yet</p></div>';return;}
+  el.innerHTML=sheetsData.map(s=>{
+    const u=users.find(x=>x.id===s.user_id);
+    const {data:urlData}=db.storage.from('order-sheets').getPublicUrl(s.file_path||'');
+    return `<div class="data-item">
+      <div class="di-top">
+        <div class="di-main">${s.file_name||'sheet'}<small>${u?.full_name||u?.email||s.user_id?.substring(0,8)||'—'} · ${s.product_name||'—'}</small></div>
+        <div class="di-right"><span class="badge b-p">${(s.status||'pending').toUpperCase()}</span></div>
+      </div>
+      <div class="di-meta">
+        <div class="di-pill">${new Date(s.uploaded_at||Date.now()).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+      </div>
+      <div class="di-btns">
+        ${urlData?.publicUrl?`<a href="${urlData.publicUrl}" target="_blank" class="btn btn-b btn-sm" style="text-decoration:none">↓ Download</a>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
 
 // ── TOAST ──
 function toast(msg,type='info'){

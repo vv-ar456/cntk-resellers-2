@@ -1582,11 +1582,14 @@ function renderOrderStep(){
   }
   else if(s===4){
     const qty=OS.parsed.qty;
+    // Preserve existing split values to prevent reset glitch
+    const savedCod=OS.codCount||0;
+    const savedPre=OS.prepaidCount||0;
     body.innerHTML=`${dots(4)}<div class="stag">Step 4 — Split</div><div class="sq"><strong style="color:var(--amb)">${qty} units</strong> — COD vs Prepaid</div>
       <div class="ib"><strong>COD:</strong> ₹${CUR_PROD.cod_charge||0}/unit &nbsp;·&nbsp; <strong>Prepaid:</strong> ₹${CUR_PROD.price}/unit</div>
       <div class="sg2">
-        <div class="fg"><label class="lbl">COD Units</label><input class="inp" type="number" id="codIn" placeholder="0" min="0" max="${qty}" oninput="calcSplit()" inputmode="numeric"></div>
-        <div class="fg"><label class="lbl">Prepaid Units</label><input class="inp" type="number" id="preIn" placeholder="0" min="0" max="${qty}" oninput="calcSplit()" inputmode="numeric"></div>
+        <div class="fg"><label class="lbl">COD Units</label><input class="inp" type="number" id="codIn" placeholder="0" min="0" max="${qty}" oninput="OS.codCount=parseInt(this.value)||0;calcSplit()" inputmode="numeric" value="${savedCod||''}"></div>
+        <div class="fg"><label class="lbl">Prepaid Units</label><input class="inp" type="number" id="preIn" placeholder="0" min="0" max="${qty}" oninput="OS.prepaidCount=parseInt(this.value)||0;calcSplit()" inputmode="numeric" value="${savedPre||''}"></div>
       </div>
       <div id="splitWarn" style="font-size:11px;min-height:16px;margin-bottom:8px"></div>
       <div class="sb" id="paySummary" style="display:none">
@@ -1602,13 +1605,8 @@ function renderOrderStep(){
       </div>
       <button class="btn btn-a" id="s4btn" onclick="goStep5()" disabled>Review & Pay →</button>
       <button class="btn btn-g" onclick="OS.step=3;renderOrderStep()" style="margin-top:8px">← Back</button>`;
-    // Restore split if coming back
-    if(OS.codCount||OS.prepaidCount){
-      setTimeout(()=>{
-        const ci=document.getElementById('codIn'),pi=document.getElementById('preIn');
-        if(ci)ci.value=OS.codCount;if(pi)pi.value=OS.prepaidCount;calcSplit();
-      },50);
-    }
+    // Always trigger calcSplit if values exist
+    if(savedCod||savedPre){calcSplit();}
   }
   else if(s===5){
     const cod=OS.codCount,pre=OS.prepaidCount;
@@ -1617,14 +1615,19 @@ function renderOrderStep(){
     const subtotal=codAmt+preAmt+callFee;
     const walletAvail=WALLET.balance||0;
     const walletUse=Math.min(walletAvail,subtotal);
-    const estProfit=(OS.sellerPrice-CUR_PROD.price)*(cod+pre);
+    // Correct profit: (sellingPrice - codCharge - productPrice - callFeePerUnit) × units
+    const codCharge=CUR_PROD.cod_charge||0;
+    const callPerUnit=OS.callConf?(OS.callRec?7:5):0;
+    const profitPerUnit=OS.sellerPrice-codCharge-CUR_PROD.price-callPerUnit;
+    const totalUnits=cod+pre;
+    const estProfit=profitPerUnit*totalUnits;
     body.innerHTML=`${dots(5)}<div class="stag">Step 5 — Pay</div><div class="sq">Review & pay</div>
       <div class="sb">
         <div class="sr2"><span class="sl">Product</span><span class="sv" style="font-size:11px;max-width:160px;text-align:right">${CUR_PROD.name}</span></div>
-        <div class="sr2"><span class="sl">Sell @ ₹${OS.sellerPrice}/unit</span><span class="sv" style="color:var(--grn)">+₹${Math.max(0,estProfit).toLocaleString()} profit</span></div>
-        <div class="sr2"><span class="sl">COD (${cod}×₹${CUR_PROD.cod_charge||0})</span><span class="sv" style="color:var(--ora)">₹${codAmt.toLocaleString()}</span></div>
+        <div class="sr2"><span class="sl">Sell @ ₹${OS.sellerPrice}/unit</span><span class="sv" style="color:${estProfit>0?'var(--grn)':'var(--red)'}">+₹${Math.max(0,estProfit).toLocaleString()} PROFIT</span></div>
+        <div class="sr2"><span class="sl">COD (${cod}×₹${codCharge})</span><span class="sv" style="color:var(--ora)">₹${codAmt.toLocaleString()}</span></div>
         <div class="sr2"><span class="sl">Prepaid (${pre}×₹${CUR_PROD.price})</span><span class="sv" style="color:var(--tel)">₹${preAmt.toLocaleString()}</span></div>
-        ${callFee>0?`<div class="sr2"><span class="sl">Call${OS.callRec?'+Rec':''} (${cod+pre}×₹${OS.callRec?7:5})</span><span class="sv" style="color:var(--blu)">₹${callFee}</span></div>`:''}
+        ${callFee>0?`<div class="sr2"><span class="sl">Call${OS.callRec?'+Rec':''} (${totalUnits}×₹${OS.callRec?7:5})</span><span class="sv" style="color:var(--blu)">₹${callFee}</span></div>`:''}
         <div class="sr2 hl"><span class="sl">Order Total</span><span class="sv" id="orderTotal">₹${subtotal.toLocaleString()}</span></div>
       </div>
       ${walletAvail>0?`
@@ -1636,11 +1639,10 @@ function renderOrderStep(){
           </div>
           <div id="walletSplit" style="font-size:11px;color:var(--sub);margin-top:7px"></div>
         </div>`:''}
-      <div class="pg2">
-        <div class="pi3"><div class="em">📹</div><div class="pt">Returns</div><div class="pd">4-day, video req.</div></div>
+      <div class="pg2" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="pi3"><div class="em">📹</div><div class="pt">Returns</div><div class="pd">Returns accepted within 4 days. Full unboxing video is required. Not applicable on all products.</div></div>
         <div class="pi3"><div class="em">🚫</div><div class="pt">COD Fee</div><div class="pd">Non-refundable.</div></div>
         <div class="pi3"><div class="em">🔒</div><div class="pt">Secure</div><div class="pd">Razorpay.</div></div>
-        <div class="pi3"><div class="em">💰</div><div class="pt">Profit</div><div class="pd">Wallet in 72h.</div></div>
       </div>
       <button class="btn btn-a" id="payBtn" onclick="doPayment(${subtotal})">
         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
@@ -1674,7 +1676,31 @@ function processFile(file){
   if(!file.name.match(/\.(xlsx|xls|csv)$/i)){toast('Use XLSX, XLS or CSV','error');return;}
   document.getElementById('aiStatus').innerHTML='<div class="loading-row"><div class="spin"></div><span>AI reading sheet…</span></div>';
   const reader=new FileReader();
-  reader.onload=e=>{try{const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];aiParse(XLSX.utils.sheet_to_json(ws,{header:1,defval:''}));}catch{toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}};
+  reader.onload=async e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      // Save sheet to Supabase storage and record metadata
+      try{
+        const ext=file.name.split('.').pop()||'xlsx';
+        const path=`sheets/${CU.id}_${Date.now()}.${ext}`;
+        const {error:upErr}=await db.storage.from('order-sheets').upload(path,file,{contentType:file.type,upsert:false});
+        if(!upErr){
+          await db.from('uploaded_sheets').insert({
+            user_id:CU.id,
+            file_name:file.name,
+            file_path:path,
+            product_id:CUR_PROD?.id||null,
+            product_name:CUR_PROD?.name||null,
+            uploaded_at:new Date().toISOString(),
+            status:'pending'
+          });
+        }
+      }catch(se){console.warn('Sheet save to Supabase failed:',se);}
+      aiParse(rows);
+    }catch{toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}
+  };
   reader.readAsArrayBuffer(file);
 }
 function aiParse(rows){
@@ -1761,8 +1787,12 @@ async function doPayment(subtotal){
     toast('Order placed via wallet!','success');showPg('orders');
     return;
   }
+  // Try to create Razorpay order via edge function, proceed without it if it fails
   let rzpOid=null;
-  try{const {data}=await db.functions.invoke('create-razorpay-order',{body:{amount:Math.round(rzpAmt*100),currency:'INR',receipt:`dsp_${Date.now()}`}});rzpOid=data?.id;}catch{}
+  try{
+    const {data}=await db.functions.invoke('create-razorpay-order',{body:{amount:Math.round(rzpAmt*100),currency:'INR',receipt:`dsp_${Date.now()}`}});
+    rzpOid=data?.id||null;
+  }catch(e){console.warn('RZP order creation skipped:',e);}
   const opts={
     key:RZP_KEY,amount:Math.round(rzpAmt*100),currency:'INR',
     name:'Dropship Pro',description:CUR_PROD.name,
@@ -1776,9 +1806,14 @@ async function doPayment(subtotal){
     },
     modal:{ondismiss:()=>{if(btn){btn.disabled=false;btn.innerHTML=`<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pay ₹${rzpAmt.toLocaleString()} via Razorpay`;}toast('Payment cancelled.','info');}}
   };
-  const rzp=new Razorpay(opts);
-  rzp.on('payment.failed',()=>{toast('Payment failed','error');if(btn){btn.disabled=false;btn.textContent='Pay via Razorpay';}});
-  rzp.open();
+  try{
+    const rzp=new Razorpay(opts);
+    rzp.on('payment.failed',()=>{toast('Payment failed. Please retry.','error');if(btn){btn.disabled=false;btn.textContent='Pay via Razorpay';}});
+    rzp.open();
+  }catch(e){
+    toast('Payment gateway error. Check your connection.','error');
+    if(btn){btn.disabled=false;btn.textContent='Pay via Razorpay';}
+  }
 }
 
 async function saveOrder(resp,totalPaid,walletUsed,rzpPaid){
