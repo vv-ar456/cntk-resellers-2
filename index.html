@@ -1800,9 +1800,14 @@ async function doPayment(subtotal){
   const walletUse=Math.min(OS.walletUse||0,WALLET.balance||0,subtotal);
   const rzpAmt=subtotal-walletUse;
   if(rzpAmt<=0){
-    await saveOrder(null,subtotal,walletUse,0);
-    closeOrder();await loadMyOrders();await loadWallet();renderDash();renderProfile();
-    toast('Order placed via wallet!','success');showPg('orders');
+    if(btn){btn.disabled=true;btn.innerHTML='<div class="spin"></div> Saving order…';}
+    const ok=await saveOrder(null,subtotal,walletUse,0);
+    if(ok){
+      closeOrder();await loadMyOrders();await loadWallet();renderDash();renderProfile();
+      toast('✅ Order placed via wallet!','success');showPg('orders');
+    }else{
+      if(btn){btn.disabled=false;btn.textContent='Retry';}
+    }
     return;
   }
   // Direct Razorpay open — no backend order creation needed
@@ -1815,9 +1820,22 @@ async function doPayment(subtotal){
     prefill:{name:UP?.full_name||'',email:CU?.email||'',contact:UP?.phone||''},
     theme:{color:'#f5a623'},
     handler:async function(resp){
-      await saveOrder(resp,subtotal,walletUse,rzpAmt);
-      closeOrder();await loadMyOrders();await loadWallet();renderDash();renderProfile();
-      toast('Order placed!','success');showPg('orders');
+      // Payment done by Razorpay — now save order to DB
+      const btn2=document.getElementById('payBtn');
+      if(btn2){btn2.disabled=true;btn2.innerHTML='<div class="spin"></div> Saving order…';}
+      const ok=await saveOrder(resp,subtotal,walletUse,rzpAmt);
+      if(ok){
+        closeOrder();
+        await loadMyOrders();
+        await loadWallet();
+        renderDash();
+        renderProfile();
+        toast('✅ Order placed successfully!','success');
+        showPg('orders');
+      }else{
+        // saveOrder already showed error toast with payment_id info
+        if(btn2){btn2.disabled=false;btn2.textContent='Contact Support';}
+      }
     },
     modal:{
       ondismiss:()=>{
@@ -1851,26 +1869,83 @@ async function doPayment(subtotal){
 async function saveOrder(resp,totalPaid,walletUsed,rzpPaid){
   try{
     const callFee=OS.callConf?((OS.callRec?APP_SETTINGS.call_recording_fee:APP_SETTINGS.call_confirm_fee)*(OS.codCount+OS.prepaidCount)):0;
-    // Deduct wallet
+    // Deduct wallet if used
     if(walletUsed>0){
-      const newBal=Math.max(0,(WALLET.balance||0)-walletUsed);
-      await db.from('users_profile').update({wallet_balance:newBal}).eq('id',CU.id);
-      await db.from('wallet_transactions').insert({user_id:CU.id,type:'debit',amount:walletUsed,balance_after:newBal,note:`Used for order: ${CUR_PROD.name}`,created_at:new Date().toISOString()});
-      WALLET.balance=newBal;
+      try{
+        const newBal=Math.max(0,(WALLET.balance||0)-walletUsed);
+        await db.from('users_profile').update({wallet_balance:newBal}).eq('id',CU.id);
+        await db.from('wallet_transactions').insert({user_id:CU.id,type:'debit',amount:walletUsed,balance_after:newBal,note:`Order: ${CUR_PROD.name}`,created_at:new Date().toISOString()});
+        WALLET.balance=newBal;
+      }catch(we){console.warn('Wallet deduct error (non-fatal):',we.message);}
     }
-    const {data:ord}=await db.from('orders').insert({
-      product_id:CUR_PROD.id,product_name:CUR_PROD.name,product_price:CUR_PROD.price,seller_price:OS.sellerPrice,
-      cod_count:OS.codCount,prepaid_count:OS.prepaidCount,total_paid:totalPaid,
-      wallet_used:walletUsed,razorpay_paid:rzpPaid,
-      payment_id:resp?.razorpay_payment_id||'wallet',razorpay_order_id:resp?.razorpay_order_id||null,
-      status:'paid',user_id:CU.id,is_manual:OS.mode==='manual',
-      customer_name:OS.manualData?.customerName||null,customer_phone:OS.manualData?.customerPhone||null,customer_address:OS.manualData?.address||null,
-      call_confirmation:OS.callConf,call_recording:OS.callRec,call_confirmation_fee:callFee,
-      call_status:OS.callConf?'pending':'none',margin_credited:false,
+
+    // Try full insert with all columns
+    const fullPayload={
+      product_id:CUR_PROD.id,
+      product_name:CUR_PROD.name,
+      product_price:CUR_PROD.price,
+      seller_price:OS.sellerPrice,
+      cod_count:OS.codCount,
+      prepaid_count:OS.prepaidCount,
+      total_paid:totalPaid,
+      wallet_used:walletUsed,
+      razorpay_paid:rzpPaid,
+      payment_id:resp?.razorpay_payment_id||'wallet',
+      razorpay_order_id:resp?.razorpay_order_id||null,
+      status:'paid',
+      user_id:CU.id,
+      is_manual:OS.mode==='manual',
+      customer_name:OS.manualData?.customerName||null,
+      customer_phone:OS.manualData?.customerPhone||null,
+      customer_address:OS.manualData?.address||null,
+      call_confirmation:OS.callConf,
+      call_recording:OS.callRec,
+      call_confirmation_fee:callFee,
+      call_status:OS.callConf?'pending':'none',
+      margin_credited:false,
       created_at:new Date().toISOString()
-    }).select();
-    if(OS.callConf&&ord?.[0]){await db.from('call_tasks').insert({order_id:ord[0].id,status:'unassigned',created_at:new Date().toISOString()});}
-  }catch(e){console.error('saveOrder:',e);}
+    };
+
+    let ord=null;
+    const {data:d1,error:e1}=await db.from('orders').insert(fullPayload).select();
+    if(e1){
+      console.warn('Full insert failed, trying minimal:',e1.message);
+      // Fallback: minimal columns only — guaranteed to exist
+      const minPayload={
+        product_id:CUR_PROD.id,
+        product_name:CUR_PROD.name,
+        product_price:CUR_PROD.price,
+        cod_count:OS.codCount,
+        prepaid_count:OS.prepaidCount,
+        total_paid:totalPaid,
+        payment_id:resp?.razorpay_payment_id||'wallet',
+        status:'paid',
+        user_id:CU.id,
+        created_at:new Date().toISOString()
+      };
+      const {data:d2,error:e2}=await db.from('orders').insert(minPayload).select();
+      if(e2){
+        console.error('Minimal insert also failed:',e2.message);
+        toast('⚠️ Order save failed: '+e2.message+'. Payment ID: '+(resp?.razorpay_payment_id||'wallet')+'. Admin se contact karo.','error');
+        return false;
+      }
+      ord=d2;
+      toast('⚠️ Order saved with basic info only. Admin se full details share karo.','info');
+    }else{
+      ord=d1;
+    }
+
+    // Create call task if needed
+    if(OS.callConf&&ord?.[0]){
+      try{await db.from('call_tasks').insert({order_id:ord[0].id,status:'unassigned',created_at:new Date().toISOString()});}
+      catch(ce){console.warn('Call task insert failed:',ce.message);}
+    }
+    return true;
+  }catch(e){
+    console.error('saveOrder critical error:',e);
+    toast('⚠️ Critical error: '+e.message+'. Payment ID: '+(resp?.razorpay_payment_id||'?')+'. Screenshot lo.','error');
+    return false;
+  }
 }
 
 // ════════════════════════════════════════════════
