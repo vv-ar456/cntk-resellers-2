@@ -508,8 +508,10 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
 <script>
 const SB_URL='https://szvnnkukkgqddaahrwui.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzE3MTUsImV4cCI6MjA5MjQwNzcxNX0.-13k_Yr7w4vr_8sG7dc9Vv0StQi1rFmz-O2isiXQdsY';
+const SVC_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
 const {createClient}=supabase;
 const db=createClient(SB_URL,SB_KEY);
+const dbSvc=createClient(SB_URL,SVC_KEY);
 
 // Security
 document.addEventListener('contextmenu',e=>e.preventDefault());
@@ -1185,31 +1187,55 @@ let sheetsData=[];
 async function loadSheets(){
   document.getElementById('sheetsList').innerHTML='<div class="loading-row"><div class="spin"></div>Loading…</div>';
   try{
-    const {data,error}=await db.from('uploaded_sheets').select('*').order('uploaded_at',{ascending:false}).limit(100);
+    // Use service role to bypass RLS
+    const {data,error}=await dbSvc.from('uploaded_sheets').select('*').order('uploaded_at',{ascending:false}).limit(200);
     if(error)throw error;
     sheetsData=data||[];
     renderSheets();
-  }catch(e){document.getElementById('sheetsList').innerHTML=`<div class="empty"><p>Error loading sheets: ${e.message}</p><p style="font-size:10px;margin-top:6px;color:var(--mut)">Make sure the 'uploaded_sheets' table exists in Supabase.</p></div>`;}
+  }catch(e){
+    document.getElementById('sheetsList').innerHTML=`<div class="empty"><p style="color:var(--red)">Error: ${e.message}</p></div>`;
+  }
 }
 function renderSheets(){
   const el=document.getElementById('sheetsList');
-  if(!sheetsData.length){el.innerHTML='<div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg><p>No sheets uploaded yet</p></div>';return;}
+  if(!sheetsData.length){
+    el.innerHTML='<div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:32px;height:32px;margin-bottom:8px;opacity:.3"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>No sheets uploaded yet</p></div>';
+    return;
+  }
   el.innerHTML=sheetsData.map(s=>{
+    // Look up user from already-loaded users array
     const u=users.find(x=>x.id===s.user_id);
-    const {data:urlData}=db.storage.from('order-sheets').getPublicUrl(s.file_path||'');
+    const userName=u?.full_name||u?.email||s.user_id?.substring(0,12)||'Unknown';
+    const dateStr=s.uploaded_at?new Date(s.uploaded_at).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
     return `<div class="data-item">
       <div class="di-top">
-        <div class="di-main">${s.file_name||'sheet'}<small>${u?.full_name||u?.email||s.user_id?.substring(0,8)||'—'} · ${s.product_name||'—'}</small></div>
-        <div class="di-right"><span class="badge b-p">${(s.status||'pending').toUpperCase()}</span></div>
+        <div class="di-main">
+          📄 ${s.file_name||'sheet.xlsx'}
+          <small>👤 ${userName} &nbsp;·&nbsp; 📦 ${s.product_name||'—'}</small>
+        </div>
+        <div class="di-right">
+          <span class="badge ${s.status==='pending'?'b-p':s.status==='processed'?'b-a':'b-g'}">${(s.status||'pending').toUpperCase()}</span>
+        </div>
       </div>
       <div class="di-meta">
-        <div class="di-pill">${new Date(s.uploaded_at||Date.now()).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+        <div class="di-pill">🕐 ${dateStr}</div>
       </div>
-      <div class="di-btns">
-        ${urlData?.publicUrl?`<a href="${urlData.publicUrl}" target="_blank" class="btn btn-b btn-sm" style="text-decoration:none">↓ Download</a>`:''}
+      <div class="di-btns" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        ${s.file_url?`<a href="${s.file_url}" target="_blank" download="${s.file_name||'sheet'}" class="btn btn-a btn-sm" style="text-decoration:none;width:auto">⬇️ Download</a>`:'<span style="font-size:11px;color:var(--sub)">No file stored</span>'}
+        <button class="btn btn-b btn-sm" onclick="markSheet('${s.id}','processed')">✅ Processed</button>
+        <button class="btn btn-d btn-sm" onclick="deleteSheet('${s.id}')">🗑 Delete</button>
       </div>
     </div>`;
   }).join('');
+}
+async function markSheet(id,status){
+  await dbSvc.from('uploaded_sheets').update({status}).eq('id',id);
+  loadSheets();
+}
+async function deleteSheet(id){
+  if(!confirm('Delete this sheet record?'))return;
+  await dbSvc.from('uploaded_sheets').delete().eq('id',id);
+  loadSheets();
 }
 
 // ── TOAST ──

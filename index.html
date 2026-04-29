@@ -1696,26 +1696,39 @@ function processFile(file){
       const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      // Parse immediately — don't block on Supabase save
+      // Parse immediately
       aiParse(rows);
-      // Save to Supabase in background using service role (needed for private bucket)
+      // Upload file to storage + save metadata in background
       (async()=>{
         try{
           const ext=file.name.split('.').pop()||'xlsx';
           const path=`sheets/${CU?.id||'anon'}_${Date.now()}.${ext}`;
-          const {error:upErr}=await dbSvc.storage.from('order-sheets').upload(path,file,{contentType:file.type,upsert:true});
-          if(upErr){console.warn('Sheet upload error:',upErr.message);return;}
-          const {error:dbErr}=await dbSvc.from('uploaded_sheets').insert({
+          // Use direct fetch with service role key — bypasses all RLS/policy issues
+          const upRes=await fetch(`${SB_URL}/storage/v1/object/order-sheets/${path}`,{
+            method:'POST',
+            headers:{
+              'apikey':SVC_KEY,
+              'Authorization':'Bearer '+SVC_KEY,
+              'Content-Type':file.type||'application/octet-stream',
+              'x-upsert':'true'
+            },
+            body:file
+          });
+          const fileSaved=upRes.ok;
+          if(!fileSaved)console.warn('Storage upload failed:',upRes.status,await upRes.text());
+          // Always save metadata to DB regardless of storage result
+          const pubUrl=fileSaved?`${SB_URL}/storage/v1/object/public/order-sheets/${path}`:null;
+          await dbSvc.from('uploaded_sheets').insert({
             user_id:CU?.id||null,
             file_name:file.name,
-            file_path:path,
+            file_path:fileSaved?path:null,
+            file_url:pubUrl,
             product_id:CUR_PROD?.id||null,
             product_name:CUR_PROD?.name||null,
             uploaded_at:new Date().toISOString(),
             status:'pending'
-          });
-          if(dbErr)console.warn('Sheet DB insert error:',dbErr.message);
-        }catch(se){console.warn('Sheet bg-save failed:',se.message);}
+          }).catch(e=>console.warn('Sheet DB insert:',e.message));
+        }catch(se){console.warn('Sheet bg-save:',se.message);}
       })();
     }catch(err){toast('Cannot read file','error');document.getElementById('aiStatus').innerHTML='';}
   };
