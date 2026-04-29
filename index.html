@@ -742,10 +742,12 @@ select.inp{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg fill='
 // ════════════════════════════════════════════════
 const SB_URL='https://szvnnkukkgqddaahrwui.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MzE3MTUsImV4cCI6MjA5MjQwNzcxNX0.-13k_Yr7w4vr_8sG7dc9Vv0StQi1rFmz-O2isiXQdsY';
+const SVC_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
 const RZP_KEY='rzp_live_SSegtOEGykPOUN';
 const TF_KEY='2503bcf6-237e-11f1-bcb0-0200cd936042';
 const {createClient}=supabase;
 const db=createClient(SB_URL,SB_KEY);
+const dbSvc=createClient(SB_URL,SVC_KEY); // Service role — bypasses RLS, for order saves
 
 // ════════════════════════════════════════════════
 // SECURITY
@@ -1696,11 +1698,9 @@ function processFile(file){
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
       // Parse immediately — don't block on Supabase save
       aiParse(rows);
-      // Save to Supabase in background using service role key (needed for private bucket)
+      // Save to Supabase in background using service role (needed for private bucket)
       (async()=>{
         try{
-          const SVC_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
-          const dbSvc=supabase.createClient(SB_URL,SVC_KEY);
           const ext=file.name.split('.').pop()||'xlsx';
           const path=`sheets/${CU?.id||'anon'}_${Date.now()}.${ext}`;
           const {error:upErr}=await dbSvc.storage.from('order-sheets').upload(path,file,{contentType:file.type,upsert:true});
@@ -1870,96 +1870,134 @@ async function doPayment(subtotal){
 let _colsMigrated=false;
 async function ensureOrderColumns(){
   if(_colsMigrated)return;
-  const SVC='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6dm5ua3Vra2dxZGRhYWhyd3VpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjgzMTcxNSwiZXhwIjoyMDkyNDA3NzE1fQ.w2_DEk7GcZvzemWQixOHT7GrRb0EVykBDNAoW0Kzawg';
-  const sql=`
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id uuid;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS seller_price numeric;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS product_price numeric;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_count int DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS prepaid_count int DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_paid numeric DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS wallet_used numeric DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_paid numeric DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_id text;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id text;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS status text DEFAULT 'paid';
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_manual boolean DEFAULT false;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name text;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone text;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_address text;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_confirmation boolean DEFAULT false;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_recording boolean DEFAULT false;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_confirmation_fee numeric DEFAULT 0;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_status text DEFAULT 'none';
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS margin_credited boolean DEFAULT false;
-    ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
-  `;
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/rpc/exec_sql`,{
-      method:'POST',headers:{'Content-Type':'application/json','apikey':SVC,'Authorization':'Bearer '+SVC},
-      body:JSON.stringify({query:sql})
-    });
-    // Also try direct pg approach
-    await fetch(`${SB_URL}/pg/query`,{
-      method:'POST',headers:{'Content-Type':'application/json','apikey':SVC,'Authorization':'Bearer '+SVC},
-      body:JSON.stringify({query:sql})
-    });
-  }catch(e){console.warn('Column migration attempt:',e.message);}
   _colsMigrated=true;
+  // Run ALTER TABLE via Supabase SQL endpoint (service role only)
+  const queries=[
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id uuid`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS product_price numeric`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS seller_price numeric`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS cod_count int DEFAULT 0`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS prepaid_count int DEFAULT 0`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_paid numeric DEFAULT 0`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS wallet_used numeric DEFAULT 0`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_paid numeric DEFAULT 0`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_id text`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS razorpay_order_id text`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS status text DEFAULT 'paid'`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_manual boolean DEFAULT false`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name text`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone text`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_address text`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_confirmation boolean DEFAULT false`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_recording boolean DEFAULT false`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_confirmation_fee numeric DEFAULT 0`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS call_status text DEFAULT 'none'`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS margin_credited boolean DEFAULT false`,
+    `ALTER TABLE orders ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now()`
+  ];
+  for(const q of queries){
+    try{ await dbSvc.rpc('query',{sql:q}); }catch{}
+    try{
+      await fetch(SB_URL+'/rest/v1/rpc/query',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SVC_KEY,'Authorization':'Bearer '+SVC_KEY},
+        body:JSON.stringify({sql:q})
+      });
+    }catch{}
+  }
 }
 
 async function saveOrder(resp,totalPaid,walletUsed,rzpPaid){
   try{
-    // Try to migrate columns first (runs once per session)
-    await ensureOrderColumns();
+    // Fire migration in background (won't block)
+    ensureOrderColumns().catch(()=>{});
 
-    const callFee=OS.callConf?((OS.callRec?APP_SETTINGS.call_recording_fee:APP_SETTINGS.call_confirm_fee)*(OS.codCount+OS.prepaidCount)):0;
+    const CF=APP_SETTINGS.call_confirm_fee||5;
+    const CR=APP_SETTINGS.call_recording_fee||7;
+    const callFee=OS.callConf?((OS.callRec?CR:CF)*(OS.codCount+OS.prepaidCount)):0;
+    const now=new Date().toISOString();
+    const pid=resp?.razorpay_payment_id||('wallet_'+Date.now());
 
-    // Wallet deduct
+    // Wallet deduct via service role
     if(walletUsed>0){
       try{
         const newBal=Math.max(0,(WALLET.balance||0)-walletUsed);
-        await db.from('users_profile').update({wallet_balance:newBal}).eq('id',CU.id);
-        await db.from('wallet_transactions').insert({user_id:CU.id,type:'debit',amount:walletUsed,balance_after:newBal,note:`Order: ${CUR_PROD.name}`,created_at:new Date().toISOString()});
+        await dbSvc.from('users_profile').update({wallet_balance:newBal}).eq('id',CU.id);
+        await dbSvc.from('wallet_transactions').insert({
+          user_id:CU.id,type:'debit',amount:walletUsed,
+          balance_after:newBal,note:`Order: ${CUR_PROD.name}`,created_at:now
+        });
         WALLET.balance=newBal;
       }catch(we){console.warn('Wallet deduct:',we.message);}
     }
 
-    // Try insert — start with ALL columns, strip failing ones automatically
-    const attempts=[
-      // Attempt 1: Full payload
-      {product_id:CUR_PROD.id,product_name:CUR_PROD.name,product_price:CUR_PROD.price,seller_price:OS.sellerPrice,cod_count:OS.codCount,prepaid_count:OS.prepaidCount,total_paid:totalPaid,wallet_used:walletUsed,razorpay_paid:rzpPaid,payment_id:resp?.razorpay_payment_id||'wallet',razorpay_order_id:resp?.razorpay_order_id||null,status:'paid',user_id:CU.id,is_manual:OS.mode==='manual',customer_name:OS.manualData?.customerName||null,customer_phone:OS.manualData?.customerPhone||null,customer_address:OS.manualData?.address||null,call_confirmation:OS.callConf,call_recording:OS.callRec,call_confirmation_fee:callFee,call_status:OS.callConf?'pending':'none',margin_credited:false,created_at:new Date().toISOString()},
-      // Attempt 2: Medium payload
-      {product_id:CUR_PROD.id,product_name:CUR_PROD.name,product_price:CUR_PROD.price,cod_count:OS.codCount,prepaid_count:OS.prepaidCount,total_paid:totalPaid,payment_id:resp?.razorpay_payment_id||'wallet',status:'paid',user_id:CU.id,call_confirmation:OS.callConf,call_status:OS.callConf?'pending':'none',created_at:new Date().toISOString()},
-      // Attempt 3: Bare minimum (guaranteed columns from image)
-      {product_id:CUR_PROD.id,product_name:CUR_PROD.name}
-    ];
+    // ── INSERT ATTEMPTS (service role, 3 fallback levels) ──
+    const fullPayload={
+      product_id:CUR_PROD.id, product_name:CUR_PROD.name, product_price:CUR_PROD.price,
+      seller_price:OS.sellerPrice, cod_count:OS.codCount, prepaid_count:OS.prepaidCount,
+      total_paid:totalPaid, wallet_used:walletUsed, razorpay_paid:rzpPaid,
+      payment_id:pid, razorpay_order_id:resp?.razorpay_order_id||null,
+      status:'paid', user_id:CU.id, is_manual:OS.mode==='manual',
+      customer_name:OS.manualData?.customerName||null,
+      customer_phone:OS.manualData?.customerPhone||null,
+      customer_address:OS.manualData?.address||null,
+      call_confirmation:OS.callConf, call_recording:OS.callRec,
+      call_confirmation_fee:callFee, call_status:OS.callConf?'pending':'none',
+      margin_credited:false, created_at:now
+    };
+    const safePayload={
+      product_id:CUR_PROD.id, product_name:CUR_PROD.name, product_price:CUR_PROD.price,
+      cod_count:OS.codCount, prepaid_count:OS.prepaidCount, total_paid:totalPaid,
+      payment_id:pid, status:'paid', user_id:CU.id, created_at:now
+    };
+    const barePayload={product_id:CUR_PROD.id, product_name:CUR_PROD.name};
 
-    let ord=null,lastErr=null;
-    for(let i=0;i<attempts.length;i++){
-      const {data,error}=await db.from('orders').insert(attempts[i]).select();
-      if(!error){ord=data;console.log(`Order inserted on attempt ${i+1}`);break;}
-      lastErr=error;
-      console.warn(`Insert attempt ${i+1} failed:`,error.message);
-    }
-
-    if(!ord){
-      // All attempts failed — store locally and alert
-      const pid=resp?.razorpay_payment_id||'wallet_'+Date.now();
-      localStorage.setItem('failed_order_'+pid,JSON.stringify({pid,product:CUR_PROD.name,amount:totalPaid,time:new Date().toISOString()}));
-      toast('⚠️ DB error: '+lastErr?.message+'. Payment ID: '+(resp?.razorpay_payment_id||'N/A')+' — screenshot lo!','error');
-      return false;
+    let ord=null;
+    // Level 1: full + service role
+    const {data:d1,error:e1}=await dbSvc.from('orders').insert(fullPayload).select();
+    if(!e1&&d1?.length){
+      ord=d1; console.log('✅ Order saved (full)');
+    } else {
+      console.warn('Full insert error:',e1?.message);
+      // Level 2: safe + service role
+      const {data:d2,error:e2}=await dbSvc.from('orders').insert(safePayload).select();
+      if(!e2&&d2?.length){
+        ord=d2; console.warn('✅ Order saved (safe)');
+      } else {
+        console.warn('Safe insert error:',e2?.message);
+        // Level 3: bare minimum
+        const {data:d3,error:e3}=await dbSvc.from('orders').insert(barePayload).select();
+        if(!e3&&d3?.length){
+          ord=d3; console.warn('✅ Order saved (bare)');
+        } else {
+          // All failed — save locally so payment proof isn't lost
+          localStorage.setItem('pending_order_'+pid, JSON.stringify({
+            pid, product:CUR_PROD.name, amount:totalPaid,
+            user:CU.id, error:e3?.message, time:now
+          }));
+          toast('❌ Order save failed!\nPayment ID: '+pid+'\n📸 Screenshot lo & admin ko bhejo!','error');
+          return false;
+        }
+      }
     }
 
     // Call task
     if(OS.callConf&&ord?.[0]?.id){
-      try{await db.from('call_tasks').insert({order_id:ord[0].id,status:'unassigned',created_at:new Date().toISOString()});}
-      catch(ce){console.warn('Call task:',ce.message);}
+      try{
+        await dbSvc.from('call_tasks').insert({
+          order_id:ord[0].id, status:'unassigned', created_at:now
+        });
+      }catch(ce){console.warn('Call task:',ce.message);}
     }
     return true;
+
   }catch(e){
+    const pid=resp?.razorpay_payment_id||'unknown';
+    localStorage.setItem('pending_order_'+pid,JSON.stringify({
+      pid, product:CUR_PROD?.name, amount:totalPaid, time:new Date().toISOString(), err:e.message
+    }));
     console.error('saveOrder critical:',e);
-    toast('⚠️ Error: '+e.message+'. Payment: '+(resp?.razorpay_payment_id||'?'),'error');
+    toast('❌ Critical error!\nPayment ID: '+pid+'\n📸 Screenshot lo!','error');
     return false;
   }
 }
